@@ -321,15 +321,12 @@ class PDFLinkService {
         pageNumber = params.get("page") | 0 || 1;
       }
       
-      if (params.has("toolbar")){
-        let hidden = false;
-        if (params.get("toolbar") === "hidden"){
-          hidden = true;
+      document.getElementById('outerContainer').onmousemove = (e) => {
+        if (e.clientY <= 64) {
+          document.getElementById("toolbarContainer").style.removeProperty("display");
+        } else {
+          document.getElementById("toolbarContainer").style.setProperty("display", "none");
         }
-        this.eventBus.dispatch("hidetoolbar", {
-          source: this, 
-          hidden
-        });
       }
       if (params.has("zoom")) {
         // Build the destination array.
