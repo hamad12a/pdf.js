@@ -1908,7 +1908,7 @@ const PDFViewerApplication = {
       preferences,
       _eventBusAbortController: { signal },
     } = this;
-
+    eventBus._on("hidetoolbar", webViewerHideToolbar, { signal });
     eventBus._on("resize", onResize.bind(this), { signal });
     eventBus._on("hashchange", onHashchange.bind(this), { signal });
     eventBus._on("beforeprint", this.beforePrint.bind(this), { signal });
@@ -3132,4 +3132,11 @@ function beforeUnload(evt) {
   return false;
 }
 
+function webViewerHideToolbar(evt) {
+  if (evt.hidden) {
+    document.getElementById("toolbarContainer").style.setProperty("display", "none");
+  } else {
+    document.getElementById("toolbarContainer").style.removeProperty("display");
+  }
+}
 export { PDFViewerApplication };
