@@ -364,10 +364,12 @@ See https://github.com/adobe-type-tools/cmap-resources
               </div>
               <div id="toolbarViewerRight">
                 <div id="editorModeButtons" class="splitToolbarButton toggled" role="radiogroup">
+                  <label for="brightness">Brightness:</label>
+                  <input id="editorBrightness" type="number" value="0.5" step="0.1">
                   <label for="sepia">Sepia:</label>
                   <input id="editorSepia" type="number" value="0.5" step="0.1" min="0" max="1">
-                  <label for="brightness">Brightness:</label>
-                  <input id="editorBrightness" type="number" value="0.5" step="0.1" min="0.2" max="2">
+                  <label for="dark">Dark:</label>
+                  <input id="editorDark" type="number" value="0.5" step="0.1">
                   <button id="editorHighlight" class="toolbarButton" type="button" hidden="true" disabled="disabled" title="Highlight" role="radio" aria-checked="false" aria-controls="editorHighlightParamsToolbar" tabindex="31" data-l10n-id="pdfjs-editor-highlight-button">
                     <span data-l10n-id="pdfjs-editor-highlight-button-label">Highlight</span>
                   </button>

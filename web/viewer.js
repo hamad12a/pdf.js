@@ -253,21 +253,23 @@ function webViewerLoad() {
   }
   
 const pdfViewer = document.querySelector('.pdfViewer');
-const sepiaInputElement = document.getElementById('editorSepia');
 const brightnessInputElement = document.getElementById('editorBrightness');
+const sepiaInputElement = document.getElementById('editorSepia');
+const darkInputElement = document.getElementById('editorDark');
 
 // Function to update filters
 function updateFilters() {
-  const sepiaInput = parseFloat(sepiaInputElement.value);
   const brightnessInput = parseFloat(brightnessInputElement.value);
+  const sepiaInput = parseFloat(sepiaInputElement.value);
+  const darkInput = parseFloat(darkInputElement.value);
   
-  pdfViewer.style.filter = `sepia(${sepiaInput}) brightness(${brightnessInput})`;
-  console.log(`Sepia: ${sepiaInput}, Brightness: ${brightnessInput}`);
+  pdfViewer.style.filter = `brightness(${1-darkInput}) sepia(${sepiaInput}) brightness(${brightnessInput+1})`;
 }
 
 // Add event listeners to the input elements
-sepiaInputElement.addEventListener('input', updateFilters);
 brightnessInputElement.addEventListener('input', updateFilters);
+sepiaInputElement.addEventListener('input', updateFilters);
+darkInputElement.addEventListener('input', updateFilters);
 
 // Initial call to set the filters based on the current input values
 updateFilters();
