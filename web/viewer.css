@@ -243,6 +243,14 @@ body {
   display: none !important;
 }
 
+/* .pdfViewer {
+  filter: sepia(0.0) brightness(0.0);
+} */
+
+#editorSepia, #editorBrightness {
+  width: 40px;
+}
+
 #viewerContainer.pdfPresentationMode:fullscreen {
   top: 0;
   background-color: rgb(0 0 0);

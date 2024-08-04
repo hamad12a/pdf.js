@@ -251,6 +251,27 @@ function webViewerLoad() {
       document.dispatchEvent(event);
     }
   }
+  
+const pdfViewer = document.querySelector('.pdfViewer');
+const sepiaInputElement = document.getElementById('editorSepia');
+const brightnessInputElement = document.getElementById('editorBrightness');
+
+// Function to update filters
+function updateFilters() {
+  const sepiaInput = parseFloat(sepiaInputElement.value);
+  const brightnessInput = parseFloat(brightnessInputElement.value);
+  
+  pdfViewer.style.filter = `sepia(${sepiaInput}) brightness(${brightnessInput})`;
+  console.log(`Sepia: ${sepiaInput}, Brightness: ${brightnessInput}`);
+}
+
+// Add event listeners to the input elements
+sepiaInputElement.addEventListener('input', updateFilters);
+brightnessInputElement.addEventListener('input', updateFilters);
+
+// Initial call to set the filters based on the current input values
+updateFilters();
+
   PDFViewerApplication.run(config);
 }
 
