@@ -247,7 +247,7 @@ body {
   filter: sepia(0.0) brightness(0.0);
 } */
 
-#editorSepia, #editorBrightness, #editorDark {
+#editorBrightness, #editorSepia, #editorDark {
   width: 40px;
 }
 
