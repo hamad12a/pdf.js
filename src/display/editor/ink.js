@@ -1,18 +1,3 @@
-/* Copyright 2022 Mozilla Foundation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 import {
   AnnotationEditorParamsType,
   AnnotationEditorType,
@@ -23,9 +8,6 @@ import { InkAnnotationElement } from "../annotation_layer.js";
 import { noContextMenu } from "../display_utils.js";
 import { opacityToHex } from "./tools.js";
 
-/**
- * Basic draw editor in order to generate an Ink annotation.
- */
 class InkEditor extends AnnotationEditor {
   #baseHeight = 0;
 
@@ -508,7 +490,7 @@ class InkEditor extends AnnotationEditor {
       return;
     }
     this.#hasSomethingToDraw = false;
-
+    
     const thickness = Math.ceil(this.thickness * this.parentScale);
     const lastPoints = this.currentPath.slice(-3);
     const x = lastPoints.map(xy => xy[0]);
@@ -532,9 +514,9 @@ class InkEditor extends AnnotationEditor {
     }
 
     for (const path of this.bezierPath2D) {
-      ctx.stroke(path);
+      ctx.stroke(path); // this draws only what we see!
     }
-    ctx.stroke(this.#currentPath2D);
+    ctx.stroke(this.#currentPath2D); // this draws only what we don't see!
 
     ctx.restore();
   }
@@ -708,14 +690,8 @@ class InkEditor extends AnnotationEditor {
    * @param {PointerEvent} event
    */
   #endDrawing(event) {
-    this.canvas.removeEventListener(
-      "pointerleave",
-      this.#boundCanvasPointerleave
-    );
-    this.canvas.removeEventListener(
-      "pointermove",
-      this.#boundCanvasPointermove
-    );
+    this.canvas.removeEventListener("pointerleave", this.#boundCanvasPointerleave);
+    this.canvas.removeEventListener("pointermove", this.#boundCanvasPointermove);
     this.canvas.removeEventListener("pointerup", this.#boundCanvasPointerup);
     this.canvas.addEventListener("pointerdown", this.#boundCanvasPointerdown, {
       signal: this._uiManager._signal,
@@ -731,7 +707,7 @@ class InkEditor extends AnnotationEditor {
       this.canvas.removeEventListener("contextmenu", noContextMenu);
     }, 10);
 
-    this.#stopDrawing(event.offsetX, event.offsetY);
+    this.#stopDrawing(event.offsetX, event.offsetY); // disabling this will disable stopdrawing and doesn't save the drawing!
 
     this.addToAnnotationStorage();
 
