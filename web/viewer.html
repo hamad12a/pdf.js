@@ -24,11 +24,11 @@ See https://github.com/adobe-type-tools/cmap-resources
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<!--#if GENERIC || CHROME-->
+    <!--#if GENERIC || CHROME-->
     <meta name="google" content="notranslate">
-<!--#endif-->
+    <!--#endif-->
     <title>PDF.js viewer</title>
-
+    
 <!--#if MOZCENTRAL-->
 <!--#include viewer-snippet-firefox-extension.html-->
 <!--#elif CHROME-->
@@ -41,7 +41,7 @@ See https://github.com/adobe-type-tools/cmap-resources
 <!--<link rel="stylesheet" href="resource://pdf.js/web/viewer.css">-->
 <!--<link rel="localization" href="toolkit/pdfviewer/viewer.ftl"/>-->
 <!--#else-->
-    <link rel="stylesheet" href="viewer.css">
+<link rel="stylesheet" href="viewer.css">
 <!--#endif-->
 
 <!--#if MOZCENTRAL-->
@@ -49,7 +49,7 @@ See https://github.com/adobe-type-tools/cmap-resources
 <!--#elif !MOZCENTRAL-->
 <!--<script src="viewer.mjs" type="module"></script>-->
 <!--#elif /* Development mode. */-->
-    <link rel="resource" type="application/l10n" href="locale/locale.json">
+<link rel="resource" type="application/l10n" href="locale/locale.json">
 
     <script type="importmap">
       {
@@ -61,7 +61,7 @@ See https://github.com/adobe-type-tools/cmap-resources
           "fluent-bundle": "../node_modules/@fluent/bundle/esm/index.js",
           "fluent-dom": "../node_modules/@fluent/dom/esm/index.js",
           "cached-iterable": "../node_modules/cached-iterable/src/index.mjs",
-
+          
           "display-fetch_stream": "../src/display/fetch_stream.js",
           "display-network": "../src/display/network.js",
           "display-node_stream": "../src/display/stubs.js",
@@ -207,6 +207,17 @@ See https://github.com/adobe-type-tools/cmap-resources
             </div>
           </div>
         </div>
+
+
+        <div class="editorParamsToolbar hidden doorHangerRight" id="editorSquareParamsToolbar">
+          <div class="editorParamsToolbarContainer">
+            <div class="editorParamsSetter">
+              <label for="editorSquareColor" class="editorParamsLabel" data-l10n-id="pdfjs-editor-square-color-input">Color</label>
+              <input type="color" id="editorSquareColor" class="editorParamsColor" tabindex="105">
+            </div>
+          </div>
+        </div>
+
 
         <div class="editorParamsToolbar hidden doorHangerRight" id="editorInkParamsToolbar">
           <div class="editorParamsToolbarContainer">
@@ -365,21 +376,24 @@ See https://github.com/adobe-type-tools/cmap-resources
               <div id="toolbarViewerRight">
                 <div id="editorModeButtons" class="splitToolbarButton toggled" role="radiogroup">
                   <label for="brightness">Brightness:</label>
-                  <input id="editorBrightness" type="number" value="-0.4" step="0.1">
+                  <input id="editorBrightness" type="number" value="-0.0" step="0.1">
                   <label for="sepia">Sepia:</label>
                   <input id="editorSepia" type="number" value="0.25" step="0.1" min="0" max="1">
                   <label for="dark">Dark:</label>
                   <input id="editorDark" type="number" value="0.3" step="0.1">
-                  <button id="editorHighlight" class="toolbarButton" type="button" hidden="true" disabled="disabled" title="Highlight" role="radio" aria-checked="false" aria-controls="editorHighlightParamsToolbar" tabindex="31" data-l10n-id="pdfjs-editor-highlight-button">
+                  <button id="editorHighlight" class="toolbarButton" type="button" title="Highlight" role="radio" aria-checked="false" aria-controls="editorHighlightParamsToolbar" tabindex="31" data-l10n-id="pdfjs-editor-highlight-button">
                     <span data-l10n-id="pdfjs-editor-highlight-button-label">Highlight</span>
                   </button>
-                  <button id="editorFreeText" class="toolbarButton" type="button" disabled="disabled" title="Text" role="radio" aria-checked="false" aria-controls="editorFreeTextParamsToolbar" tabindex="32" data-l10n-id="pdfjs-editor-free-text-button">
+                  <button id="editorSquare" class="toolbarButton" type="button" title="Square" role="radio" aria-checked="false" aria-controls="editorSquareParamsToolbar" tabindex="35" data-l10n-id="pdfjs-editor-square-button">
+                    <span data-l10n-id="pdfjs-editor-square-button-label">Square</span>
+                  </button>
+                  <button id="editorFreeText" class="toolbarButton" type="button" title="Text" role="radio" aria-checked="false" aria-controls="editorFreeTextParamsToolbar" tabindex="32" data-l10n-id="pdfjs-editor-free-text-button">
                     <span data-l10n-id="pdfjs-editor-free-text-button-label">Text</span>
                   </button>
-                  <button id="editorInk" class="toolbarButton" type="button" disabled="disabled" title="Draw" role="radio" aria-checked="false" aria-controls="editorInkParamsToolbar" tabindex="33" data-l10n-id="pdfjs-editor-ink-button">
+                  <button id="editorInk" class="toolbarButton" type="button" title="Draw" role="radio" aria-checked="false" aria-controls="editorInkParamsToolbar" tabindex="33" data-l10n-id="pdfjs-editor-ink-button">
                     <span data-l10n-id="pdfjs-editor-ink-button-label">Draw</span>
                   </button>
-                  <button id="editorStamp" class="toolbarButton" type="button" disabled="disabled" title="Add or edit images" role="radio" aria-checked="false" aria-controls="editorStampParamsToolbar" tabindex="34" data-l10n-id="pdfjs-editor-stamp-button">
+                  <button id="editorStamp" class="toolbarButton" type="button" title="Add or edit images" role="radio" aria-checked="false" aria-controls="editorStampParamsToolbar" tabindex="34" data-l10n-id="pdfjs-editor-stamp-button">
                     <span data-l10n-id="pdfjs-editor-stamp-button-label">Add or edit images</span>
                   </button>
                 </div>

@@ -21,6 +21,7 @@ import { AnnotationEditorParamsType } from "pdfjs-lib";
  * @typedef {Object} AnnotationEditorParamsOptions
  * @property {HTMLInputElement} editorFreeTextFontSize
  * @property {HTMLInputElement} editorFreeTextColor
+ * @property {HTMLInputElement} editorSquareColor
  * @property {HTMLInputElement} editorInkColor
  * @property {HTMLInputElement} editorInkThickness
  * @property {HTMLInputElement} editorInkOpacity
@@ -45,6 +46,7 @@ class AnnotationEditorParams {
   #bindListeners({
     editorFreeTextFontSize,
     editorFreeTextColor,
+    editorSquareColor,
     editorInkColor,
     editorInkThickness,
     editorInkOpacity,
@@ -65,6 +67,9 @@ class AnnotationEditorParams {
     editorFreeTextColor.addEventListener("input", function () {
       dispatchEvent("FREETEXT_COLOR", this.value);
     });
+    editorSquareColor.addEventListener("input", function () {
+      dispatchEvent("SQUARE_COLOR", this.value);
+    })
     editorInkColor.addEventListener("input", function () {
       dispatchEvent("INK_COLOR", this.value);
     });
@@ -95,6 +100,8 @@ class AnnotationEditorParams {
           case AnnotationEditorParamsType.FREETEXT_COLOR:
             editorFreeTextColor.value = value;
             break;
+          case AnnotationEditorParamsType.SQUARE_COLOR:
+            editorSquareColor.value = value;
           case AnnotationEditorParamsType.INK_COLOR:
             editorInkColor.value = value;
             break;
