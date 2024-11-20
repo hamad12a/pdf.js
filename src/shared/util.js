@@ -76,6 +76,7 @@ const AnnotationEditorType = {
   NONE: 0,
   FREETEXT: 3,
   SQUARE: 5,
+  LINE: 4,
   HIGHLIGHT: 9,
   STAMP: 13,
   INK: 15
@@ -91,6 +92,9 @@ const AnnotationEditorParamsType = {
   INK_THICKNESS: 22,
   INK_OPACITY: 23,
   SQUARE_COLOR: 24,
+  LINE_COLOR: 25,
+  LINE_THICKNESS: 26,
+  LINE_OPACITY: 27,
   HIGHLIGHT_COLOR: 31,
   HIGHLIGHT_DEFAULT_COLOR: 32,
   HIGHLIGHT_THICKNESS: 33,

@@ -84,6 +84,7 @@
   --toolbarButton-editorFreeText-icon: url(images/toolbarButton-editorFreeText.svg);
   --toolbarButton-editorHighlight-icon: url(images/toolbarButton-editorHighlight.svg);
   --toolbarButton-editorInk-icon: url(images/toolbarButton-editorInk.svg);
+  --toolbarButton-editorLine-icon: url(images/toolbarButton-editorLine.svg);
   --toolbarButton-editorSquare-icon: url(images/toolbarButton-editorSquare.svg);
   --toolbarButton-editorStamp-icon: url(images/toolbarButton-editorStamp.svg);
   --toolbarButton-menuArrow-icon: url(images/toolbarButton-menuArrow.svg);
@@ -606,7 +607,11 @@ body {
 }
 
 #editorSquareParamsToolbar {
-  inset-inline-end: calc(var(--editor-toolbar-base-offset) + 0px);
+  inset-inline-end: calc(var(--editor-toolbar-base-offset) + 5px);
+}
+
+#editorLineParamsToolbar {
+  inset-inline-end: calc(var(--editor-toolbar-base-offset) + 10px);
 }
 
 #editorInkParamsToolbar {
@@ -950,6 +955,10 @@ body {
 
 #editorSquare::before {
   mask-image: var(--toolbarButton-editorSquare-icon);
+}
+
+#editorLine::before {
+  mask-image: var(--toolbarButton-editorLine-icon);
 }
 
 #editorStamp::before {

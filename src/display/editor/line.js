@@ -4,11 +4,11 @@ import {
   Util,
 } from "../../shared/util.js";
 import { AnnotationEditor } from "./editor.js";
-import { InkAnnotationElement } from "../annotation_layer.js";
+import { LineAnnotationElement } from "../annotation_layer.js";
 import { noContextMenu } from "../display_utils.js";
 import { opacityToHex } from "./tools.js";
 
-class InkEditor extends AnnotationEditor {
+class LineEditor extends AnnotationEditor {
   #baseHeight = 0;
 
   #baseWidth = 0;
@@ -45,12 +45,12 @@ class InkEditor extends AnnotationEditor {
 
   static _defaultThickness = 1;
 
-  static _type = "ink";
+  static _type = "line";
 
-  static _editorType = AnnotationEditorType.INK;
+  static _editorType = AnnotationEditorType.LINE;
 
   constructor(params) {
-    super({ ...params, name: "inkEditor" });
+    super({ ...params, name: "lineEditor" });
     this.color = params.color || null;
     this.thickness = params.thickness || null;
     this.opacity = params.opacity || null;
@@ -65,80 +65,76 @@ class InkEditor extends AnnotationEditor {
     this._willKeepAspectRatio = true;
   }
 
-  /** @inheritdoc */
+  
   static initialize(l10n, uiManager) {
     AnnotationEditor.initialize(l10n, uiManager);
   }
 
-  /** @inheritdoc */
+  
   static updateDefaultParams(type, value) {
     switch (type) {
-      case AnnotationEditorParamsType.INK_THICKNESS:
-        InkEditor._defaultThickness = value;
+      case AnnotationEditorParamsType.LINE_THICKNESS:
+        LineEditor._defaultThickness = value;
         break;
-      case AnnotationEditorParamsType.INK_COLOR:
-        InkEditor._defaultColor = value;
+      case AnnotationEditorParamsType.LINE_COLOR:
+        LineEditor._defaultColor = value;
         break;
-      case AnnotationEditorParamsType.INK_OPACITY:
-        InkEditor._defaultOpacity = value / 100;
+      case AnnotationEditorParamsType.LINE_OPACITY:
+        LineEditor._defaultOpacity = value / 100;
         break;
     }
   }
 
-  /** @inheritdoc */
+  
   updateParams(type, value) {
     switch (type) {
-      case AnnotationEditorParamsType.INK_THICKNESS:
+      case AnnotationEditorParamsType.LINE_THICKNESS:
         this.#updateThickness(value);
         break;
-      case AnnotationEditorParamsType.INK_COLOR:
+      case AnnotationEditorParamsType.LINE_COLOR:
         this.#updateColor(value);
         break;
-      case AnnotationEditorParamsType.INK_OPACITY:
+      case AnnotationEditorParamsType.LINE_OPACITY:
         this.#updateOpacity(value);
         break;
     }
   }
 
-  /** @inheritdoc */
+  
   static get defaultPropertiesToUpdate() {
     return [
-      [AnnotationEditorParamsType.INK_THICKNESS, InkEditor._defaultThickness],
+      [AnnotationEditorParamsType.LINE_THICKNESS, LineEditor._defaultThickness],
       [
-        AnnotationEditorParamsType.INK_COLOR,
-        InkEditor._defaultColor || AnnotationEditor._defaultLineColor,
+        AnnotationEditorParamsType.LINE_COLOR,
+        LineEditor._defaultColor || AnnotationEditor._defaultLineColor,
       ],
       [
-        AnnotationEditorParamsType.INK_OPACITY,
-        Math.round(InkEditor._defaultOpacity * 100),
+        AnnotationEditorParamsType.LINE_OPACITY,
+        Math.round(LineEditor._defaultOpacity * 100),
       ],
     ];
   }
 
-  /** @inheritdoc */
+  
   get propertiesToUpdate() {
     return [
       [
-        AnnotationEditorParamsType.INK_THICKNESS,
-        this.thickness || InkEditor._defaultThickness,
+        AnnotationEditorParamsType.LINE_THICKNESS,
+        this.thickness || LineEditor._defaultThickness,
       ],
       [
-        AnnotationEditorParamsType.INK_COLOR,
+        AnnotationEditorParamsType.LINE_COLOR,
         this.color ||
-          InkEditor._defaultColor ||
+          LineEditor._defaultColor ||
           AnnotationEditor._defaultLineColor,
       ],
       [
-        AnnotationEditorParamsType.INK_OPACITY,
-        Math.round(100 * (this.opacity ?? InkEditor._defaultOpacity)),
+        AnnotationEditorParamsType.LINE_OPACITY,
+        Math.round(100 * (this.opacity ?? LineEditor._defaultOpacity)),
       ],
     ];
   }
 
-  /**
-   * Update the thickness and make this action undoable.
-   * @param {number} thickness
-   */
   #updateThickness(thickness) {
     const setThickness = th => {
       this.thickness = th;
@@ -150,16 +146,12 @@ class InkEditor extends AnnotationEditor {
       undo: setThickness.bind(this, savedThickness),
       post: this._uiManager.updateUI.bind(this._uiManager, this),
       mustExec: true,
-      type: AnnotationEditorParamsType.INK_THICKNESS,
+      type: AnnotationEditorParamsType.LINE_THICKNESS,
       overwriteIfSameType: true,
       keepUndo: true,
     });
   }
 
-  /**
-   * Update the color and make this action undoable.
-   * @param {string} color
-   */
   #updateColor(color) {
     const setColor = col => {
       this.color = col;
@@ -171,16 +163,12 @@ class InkEditor extends AnnotationEditor {
       undo: setColor.bind(this, savedColor),
       post: this._uiManager.updateUI.bind(this._uiManager, this),
       mustExec: true,
-      type: AnnotationEditorParamsType.INK_COLOR,
+      type: AnnotationEditorParamsType.LINE_COLOR,
       overwriteIfSameType: true,
       keepUndo: true,
     });
   }
 
-  /**
-   * Update the opacity and make this action undoable.
-   * @param {number} opacity
-   */
   #updateOpacity(opacity) {
     const setOpacity = op => {
       this.opacity = op;
@@ -193,13 +181,13 @@ class InkEditor extends AnnotationEditor {
       undo: setOpacity.bind(this, savedOpacity),
       post: this._uiManager.updateUI.bind(this._uiManager, this),
       mustExec: true,
-      type: AnnotationEditorParamsType.INK_OPACITY,
+      type: AnnotationEditorParamsType.LINE_OPACITY,
       overwriteIfSameType: true,
       keepUndo: true,
     });
   }
 
-  /** @inheritdoc */
+  
   rebuild() {
     if (!this.parent) {
       return;
@@ -223,7 +211,7 @@ class InkEditor extends AnnotationEditor {
     this.#fitToContent();
   }
 
-  /** @inheritdoc */
+  
   remove() {
     if (this.canvas === null) {
       return;
@@ -270,7 +258,7 @@ class InkEditor extends AnnotationEditor {
     this.setDimensions(width, height);
   }
 
-  /** @inheritdoc */
+  
   enableEditMode() {
     if (this.#disableEditing || this.canvas === null) {
       return;
@@ -283,7 +271,7 @@ class InkEditor extends AnnotationEditor {
     });
   }
 
-  /** @inheritdoc */
+  
   disableEditMode() {
     if (!this.isInEditMode() || this.canvas === null) {
       return;
@@ -299,12 +287,12 @@ class InkEditor extends AnnotationEditor {
     );
   }
 
-  /** @inheritdoc */
+  
   onceAdded() {
     this._isDraggable = !this.isEmpty();
   }
 
-  /** @inheritdoc */
+  
   isEmpty() {
     return (
       this.paths.length === 0 ||
@@ -329,9 +317,6 @@ class InkEditor extends AnnotationEditor {
     }
   }
 
-  /**
-   * Set line styles.
-   */
   #setStroke() {
     const { ctx, color, opacity, thickness, parentScale, scaleFactor } = this;
     ctx.lineWidth = (thickness * parentScale) / scaleFactor;
@@ -341,11 +326,6 @@ class InkEditor extends AnnotationEditor {
     ctx.strokeStyle = `${color}${opacityToHex(opacity)}`;
   }
 
-  /**
-   * Start to draw on the canvas.
-   * @param {number} x
-   * @param {number} y
-   */
   #startDrawing(x, y) {
     const signal = this._uiManager._signal;
     this.canvas.addEventListener("contextmenu", noContextMenu, { signal });
@@ -369,10 +349,10 @@ class InkEditor extends AnnotationEditor {
     if (!this.#isCanvasInitialized) {
       this.#isCanvasInitialized = true;
       this.#setCanvasDims();
-      this.thickness ||= InkEditor._defaultThickness;
+      this.thickness ||= LineEditor._defaultThickness;
       this.color ||=
-        InkEditor._defaultColor || AnnotationEditor._defaultLineColor;
-      this.opacity ??= InkEditor._defaultOpacity;
+        LineEditor._defaultColor || AnnotationEditor._defaultLineColor;
+      this.opacity ??= LineEditor._defaultOpacity;
     }
     this.currentPath.push([x, y]);
     this.#hasSomethingToDraw = false;
@@ -387,11 +367,6 @@ class InkEditor extends AnnotationEditor {
     window.requestAnimationFrame(this.#requestFrameCallback);
   }
 
-  /**
-   * Draw on the canvas.
-   * @param {number} x
-   * @param {number} y
-   */
   #draw(x, y) {
     const [lastX, lastY] = this.currentPath.at(-1);
     if (this.currentPath.length > 1 && x === lastX && y === lastY) {
@@ -430,11 +405,6 @@ class InkEditor extends AnnotationEditor {
     this.#currentPath2D.lineTo(...lastPoint);
   }
 
-  /**
-   * Stop to draw on the canvas.
-   * @param {number} x
-   * @param {number} y
-   */
   #stopDrawing(x, y) {
     this.#requestFrameCallback = null;
 
@@ -573,10 +543,6 @@ class InkEditor extends AnnotationEditor {
     bezierPoints.push([[x0, y0], control1, control2, [x2, y2]]);
     return bezierPoints;
   }
-
-  /**
-   * Redraw all the paths.
-   */
   #redraw() {
     if (this.isEmpty()) {
       this.#updateTransform();
@@ -594,9 +560,6 @@ class InkEditor extends AnnotationEditor {
     }
   }
 
-  /**
-   * Commit the curves we have in this editor.
-   */
   commit() {
     if (this.#disableEditing) {
       return;
@@ -616,7 +579,7 @@ class InkEditor extends AnnotationEditor {
     this.#fitToContent(/* firstTime = */ true);
     this.select();
 
-    this.parent.addInkEditorIfNeeded(/* isCommitting = */ true);
+    this.parent.addLineEditorIfNeeded(/* isCommitting = */ true);
 
     // When committing, the position of this editor is changed, hence we must
     // move it to the right position in the DOM.
@@ -626,7 +589,7 @@ class InkEditor extends AnnotationEditor {
     });
   }
 
-  /** @inheritdoc */
+  
   focusin(event) {
     if (!this._focusEventsAllowed) {
       return;
@@ -635,10 +598,6 @@ class InkEditor extends AnnotationEditor {
     this.enableEditMode();
   }
 
-  /**
-   * onpointerdown callback for the canvas we're drawing on.
-   * @param {PointerEvent} event
-   */
   canvasPointerdown(event) {
     if (event.button !== 0 || !this.isInEditMode() || this.#disableEditing) {
       return;
@@ -659,36 +618,20 @@ class InkEditor extends AnnotationEditor {
     this.#startDrawing(event.offsetX, event.offsetY);
   }
 
-  /**
-   * onpointermove callback for the canvas we're drawing on.
-   * @param {PointerEvent} event
-   */
   canvasPointermove(event) {
     event.preventDefault();
     this.#draw(event.offsetX, event.offsetY);
   }
 
-  /**
-   * onpointerup callback for the canvas we're drawing on.
-   * @param {PointerEvent} event
-   */
   canvasPointerup(event) {
     event.preventDefault();
     this.#endDrawing(event);
   }
 
-  /**
-   * onpointerleave callback for the canvas we're drawing on.
-   * @param {PointerEvent} event
-   */
   canvasPointerleave(event) {
     this.#endDrawing(event);
   }
 
-  /**
-   * End the drawing.
-   * @param {PointerEvent} event
-   */
   #endDrawing(event) {
     this.canvas.removeEventListener("pointerleave", this.#boundCanvasPointerleave);
     this.canvas.removeEventListener("pointermove", this.#boundCanvasPointermove);
@@ -716,22 +659,16 @@ class InkEditor extends AnnotationEditor {
     this.setInBackground();
   }
 
-  /**
-   * Create the canvas element.
-   */
   #createCanvas() {
     this.canvas = document.createElement("canvas");
     this.canvas.width = this.canvas.height = 0;
-    this.canvas.className = "inkEditorCanvas";
-    this.canvas.setAttribute("data-l10n-id", "pdfjs-ink-canvas");
+    this.canvas.className = "lineEditorCanvas";
+    this.canvas.setAttribute("data-l10n-id", "pdfjs-line-canvas");
 
     this.div.append(this.canvas);
     this.ctx = this.canvas.getContext("2d");
   }
 
-  /**
-   * Create the resize observer.
-   */
   #createObserver() {
     this.#observer = new ResizeObserver(entries => {
       const rect = entries[0].contentRect;
@@ -750,12 +687,12 @@ class InkEditor extends AnnotationEditor {
     );
   }
 
-  /** @inheritdoc */
+  
   get isResizable() {
     return !this.isEmpty() && this.#disableEditing;
   }
 
-  /** @inheritdoc */
+  
   render() {
     if (this.div) {
       return this.div;
@@ -812,13 +749,7 @@ class InkEditor extends AnnotationEditor {
     this.#updateTransform();
   }
 
-  /**
-   * When the dimensions of the div change the inner canvas must
-   * renew its dimensions, hence it must redraw its own contents.
-   * @param {number} width - the new width of the div
-   * @param {number} height - the new height of the div
-   * @returns
-   */
+
   setDimensions(width, height) {
     const roundedWidth = Math.round(width);
     const roundedHeight = Math.round(height);
@@ -860,9 +791,6 @@ class InkEditor extends AnnotationEditor {
     this.scaleFactor = Math.min(scaleFactorW, scaleFactorH);
   }
 
-  /**
-   * Update the canvas transform.
-   */
   #updateTransform() {
     const padding = this.#getPadding() / 2;
     this.ctx.setTransform(
@@ -875,11 +803,6 @@ class InkEditor extends AnnotationEditor {
     );
   }
 
-  /**
-   * Convert into a Path2D.
-   * @param {Array<Array<number>>} bezier
-   * @returns {Path2D}
-   */
   static #buildPath2D(bezier) {
     const path2D = new Path2D();
     for (let i = 0, ii = bezier.length; i < ii; i++) {
@@ -971,13 +894,6 @@ class InkEditor extends AnnotationEditor {
     return points;
   }
 
-  /**
-   * Transform and serialize the paths.
-   * @param {number} s - scale factor
-   * @param {number} tx - abscissa of the translation
-   * @param {number} ty - ordinate of the translation
-   * @param {Array<number>} rect - the bounding box of the annotation
-   */
   #serializePaths(s, tx, ty, rect) {
     const paths = [];
     const padding = this.thickness / 2;
@@ -1013,7 +929,7 @@ class InkEditor extends AnnotationEditor {
     return paths;
   }
 
-  /** @inheritdoc */
+  
   serialize() {
     if (this.isEmpty()) {
       return null;
@@ -1023,7 +939,7 @@ class InkEditor extends AnnotationEditor {
     const color = AnnotationEditor._colorManager.convert(this.ctx.strokeStyle);
 
     return {
-      annotationType: AnnotationEditorType.INK,
+      annotationType: AnnotationEditorType.LINE,
       color,
       thickness: this.thickness,
       opacity: this.opacity,
@@ -1040,10 +956,6 @@ class InkEditor extends AnnotationEditor {
     };
   }
   
-  /**
-   * Get the bounding box containing all the paths.
-   * @returns {Array<number>}
-   */
   #getBbox() {
     let xMin = Infinity;
     let xMax = -Infinity;
@@ -1068,24 +980,13 @@ class InkEditor extends AnnotationEditor {
     return [xMin, yMin, xMax, yMax];
   }
 
-  /**
-   * The bounding box is computed with null thickness, so we must take
-   * it into account for the display.
-   * It corresponds to the total padding, hence it should be divided by 2
-   * in order to have left/right paddings.
-   * @returns {number}
-   */
   #getPadding() {
     return this.#disableEditing
       ? Math.ceil(this.thickness * this.parentScale)
       : 0;
   }
 
-  /**
-   * Set the div position and dimensions in order to fit to
-   * the bounding box of the contents.
-   * @returns {undefined}
-   */
+
   #fitToContent(firstTime = false) {
     if (this.isEmpty()) {
       return;
@@ -1129,9 +1030,9 @@ class InkEditor extends AnnotationEditor {
     );
   }
 
-  /** @inheritdoc */
+  
   static deserialize(data, parent, uiManager) {
-    if (data instanceof InkAnnotationElement) {
+    if (data instanceof LineAnnotationElement) {
       return null;
     }
     const editor = super.deserialize(data, parent, uiManager);
@@ -1153,7 +1054,7 @@ class InkEditor extends AnnotationEditor {
     const { paths, rect, rotation } = data;
 
     for (let { bezier } of paths) {
-      bezier = InkEditor.#fromPDFCoordinates(bezier, rect, rotation);
+      bezier = LineEditor.#fromPDFCoordinates(bezier, rect, rotation);
       const path = [];
       editor.paths.push(path);
       let p0 = scaleFactor * (bezier[0] - padding);
@@ -1189,4 +1090,4 @@ class InkEditor extends AnnotationEditor {
 
 }
 
-export { InkEditor };
+export { LineEditor };

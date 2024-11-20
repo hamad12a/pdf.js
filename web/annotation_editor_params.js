@@ -21,6 +21,9 @@ import { AnnotationEditorParamsType } from "pdfjs-lib";
  * @typedef {Object} AnnotationEditorParamsOptions
  * @property {HTMLInputElement} editorFreeTextFontSize
  * @property {HTMLInputElement} editorFreeTextColor
+ * @property {HTMLInputElement} editorLineColor
+ * @property {HTMLInputElement} editorLineThickness
+ * @property {HTMLInputElement} editorLineOpacity
  * @property {HTMLInputElement} editorSquareColor
  * @property {HTMLInputElement} editorInkColor
  * @property {HTMLInputElement} editorInkThickness
@@ -46,6 +49,9 @@ class AnnotationEditorParams {
   #bindListeners({
     editorFreeTextFontSize,
     editorFreeTextColor,
+    editorLineColor,
+    editorLineThickness,
+    editorLineOpacity,
     editorSquareColor,
     editorInkColor,
     editorInkThickness,
@@ -67,9 +73,18 @@ class AnnotationEditorParams {
     editorFreeTextColor.addEventListener("input", function () {
       dispatchEvent("FREETEXT_COLOR", this.value);
     });
+    editorLineColor.addEventListener("input", function () {
+      dispatchEvent("LINE_COLOR", this.value);
+    });
+    editorLineThickness.addEventListener("input", function () {
+      dispatchEvent("LINE_THICKNESS", this.valueAsNumber);
+    });
+    editorLineOpacity.addEventListener("input", function () {
+      dispatchEvent("LINE_OPACITY", this.valueAsNumber);
+    });
     editorSquareColor.addEventListener("input", function () {
       dispatchEvent("SQUARE_COLOR", this.value);
-    })
+    });
     editorInkColor.addEventListener("input", function () {
       dispatchEvent("INK_COLOR", this.value);
     });
@@ -100,8 +115,18 @@ class AnnotationEditorParams {
           case AnnotationEditorParamsType.FREETEXT_COLOR:
             editorFreeTextColor.value = value;
             break;
+          case AnnotationEditorParamsType.LINE_COLOR:
+            editorLineColor.value = value;
+            break;
+          case AnnotationEditorParamsType.LINE_THICKNESS:
+            editorLineThickness.value = value;
+            break;
+          case AnnotationEditorParamsType.LINE_OPACITY:
+            editorLineOpacity.value = value;
+            break;
           case AnnotationEditorParamsType.SQUARE_COLOR:
             editorSquareColor.value = value;
+            break;
           case AnnotationEditorParamsType.INK_COLOR:
             editorInkColor.value = value;
             break;

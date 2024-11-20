@@ -218,6 +218,23 @@ See https://github.com/adobe-type-tools/cmap-resources
           </div>
         </div>
 
+        <div class="editorParamsToolbar hidden doorHangerRight" id="editorLineParamsToolbar">
+          <div class="editorParamsToolbarContainer">
+            <div class="editorParamsSetter">
+              <label for="editorLineColor" class="editorParamsLabel" data-l10n-id="pdfjs-editor-line-color-input">Color</label>
+              <input type="color" id="editorLineColor" class="editorParamsColor" tabindex="105">
+            </div>
+            <div class="editorParamsSetter">
+              <label for="editorLineThickness" class="editorParamsLabel" data-l10n-id="pdfjs-editor-line-thickness-input">Thickness</label>
+              <input type="range" id="editorLineThickness" class="editorParamsSlider" value="1" min="1" max="20" step="1" tabindex="106">
+            </div>
+            <div class="editorParamsSetter">
+              <label for="editorLineOpacity" class="editorParamsLabel" data-l10n-id="pdfjs-editor-line-opacity-input">Opacity</label>
+              <input type="range" id="editorLineOpacity" class="editorParamsSlider" value="100" min="1" max="100" step="1" tabindex="107">
+            </div>
+          </div>
+        </div>
+
 
         <div class="editorParamsToolbar hidden doorHangerRight" id="editorInkParamsToolbar">
           <div class="editorParamsToolbarContainer">
@@ -386,6 +403,9 @@ See https://github.com/adobe-type-tools/cmap-resources
                   </button>
                   <button id="editorSquare" class="toolbarButton" type="button" title="Square" role="radio" aria-checked="false" aria-controls="editorSquareParamsToolbar" tabindex="35" data-l10n-id="pdfjs-editor-square-button">
                     <span data-l10n-id="pdfjs-editor-square-button-label">Square</span>
+                  </button>
+                  <button id="editorLine" class="toolbarButton" type="button" title="Line" role="radio" aria-checked="false" aria-controls="editorLineParamsToolbar" tabindex="36" data-l10n-id="pdfjs-editor-line-button">
+                    <span data-l10n-id="pdfjs-editor-line-button-label">Line</span>
                   </button>
                   <button id="editorFreeText" class="toolbarButton" type="button" title="Text" role="radio" aria-checked="false" aria-controls="editorFreeTextParamsToolbar" tabindex="32" data-l10n-id="pdfjs-editor-free-text-button">
                     <span data-l10n-id="pdfjs-editor-free-text-button-label">Text</span>

@@ -40,6 +40,7 @@
   );
   --editorFreeText-editing-cursor: text;
   --editorSquare-editing-cursor: url(images/cursor-editorInk-dot.svg) 5 5, pointer;
+  --editorLine-editing-cursor: url(images/cursor-editorInk-dot.svg) 5 5, pointer;
   --editorInk-editing-cursor: url(images/cursor-editorInk-dot.svg) 5 5, pointer;
   --editorHighlight-editing-cursor: url(images/cursor-editorFreeText.svg)
       24 24,
@@ -156,7 +157,11 @@
   cursor: var(--editorSquare-editing-cursor);
 }
 
-.annotationEditorLayer :is(.freeTextEditor, .inkEditor, .stampEditor, .squareEditor) {
+.annotationEditorLayer.lineEditing {
+  cursor: var(--editorLine-editing-cursor);
+}
+
+.annotationEditorLayer :is(.freeTextEditor, .inkEditor, .stampEditor, .squareEditor, .lineEditor) {
   position: absolute;
   background: transparent;
   z-index: 1;
@@ -218,7 +223,7 @@
 }
 
 .annotationEditorLayer
-  :is(.freeTextEditor, .inkEditor, .stampEditor, .highlightEditor, .squareEditor),
+  :is(.freeTextEditor, .inkEditor, .stampEditor, .highlightEditor, .squareEditor, .lineEditor),
 .textLayer {
   .editToolbar {
     --editor-toolbar-delete-image: url(images/editor-toolbar-delete.svg);
@@ -555,6 +560,23 @@
   touch-action: none;
 }
 
+.annotationEditorLayer .lineEditor {
+  width: 100%;
+  height: 100%;
+}
+
+.annotationEditorLayer .lineEditor.editing {
+  cursor: inherit;
+}
+
+.annotationEditorLayer .lineEditor .lineEditorCanvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+
 .annotationEditorLayer .squareEditor {
   width: 100%;
   height: 100%;
@@ -631,7 +653,7 @@
 }
 
 .annotationEditorLayer {
-  :is(.freeTextEditor, .inkEditor, .stampEditor, .squareEditor) {
+  :is(.freeTextEditor, .inkEditor, .stampEditor, .squareEditor, .lineEditor) {
     & > .resizers {
       position: absolute;
       inset: 0;

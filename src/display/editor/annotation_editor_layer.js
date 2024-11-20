@@ -29,6 +29,7 @@ import { FreeTextEditor } from "./freetext.js";
 import { HighlightEditor } from "./highlight.js";
 import { InkEditor } from "./ink.js";
 import { SquareEditor } from "./square.js";
+import { LineEditor } from "./line.js";
 import { setLayerDimensions } from "../display_utils.js";
 import { StampEditor } from "./stamp.js";
 
@@ -85,10 +86,9 @@ class AnnotationEditorLayer {
   static _initialized = false;
 
   static #editorTypes = new Map(
-    [SquareEditor, FreeTextEditor, InkEditor, StampEditor, HighlightEditor].map(type => [
-      type._editorType,
-      type,
-    ])
+    [SquareEditor, FreeTextEditor, InkEditor, StampEditor, HighlightEditor, LineEditor].map(
+      type => [type._editorType, type]
+    )
   );
 
   /**
@@ -164,8 +164,15 @@ class AnnotationEditorLayer {
         this.togglePointerEvents(true);
         this.disableClick();
         break;
+      case AnnotationEditorType.LINE:
+        // We always want to have an line editor ready to draw in.
+        this.addLineEditorIfNeeded(false);
+        this.disableTextSelection();
+        this.togglePointerEvents(true);
+        this.disableClick();
+        break;
       case AnnotationEditorType.SQUARE:
-        // We always want to have an ink editor ready to draw in.
+        // We always want to have an square editor ready to draw in.
         this.addSquareEditorIfNeeded(false);
         this.disableTextSelection();
         this.togglePointerEvents(true);
@@ -223,6 +230,30 @@ class AnnotationEditorLayer {
 
   addSquareEditorIfNeeded(isCommitting) {
     if (this.#uiManager.getMode() !== AnnotationEditorType.SQUARE) {
+      // We don't want to add an ink editor if we're not in ink mode!
+      return;
+    }
+
+    if (!isCommitting) {
+      // We're removing an editor but an empty one can already exist so in this
+      // case we don't need to create a new one.
+      for (const editor of this.#editors.values()) {
+        if (editor.isEmpty()) {
+          editor.setInBackground();
+          return;
+        }
+      }
+    }
+
+    const editor = this.createAndAddNewEditor(
+      { offsetX: 0, offsetY: 0 },
+      /* isCentered = */ false
+    );
+    editor.setInBackground();
+  }
+
+  addLineEditorIfNeeded(isCommitting) {
+    if (this.#uiManager.getMode() !== AnnotationEditorType.LINE) {
       // We don't want to add an ink editor if we're not in ink mode!
       return;
     }
@@ -513,6 +544,7 @@ class AnnotationEditorLayer {
     if (!this.#isCleaningUp) {
       this.addInkEditorIfNeeded(/* isCommitting = */ false);
       this.addSquareEditorIfNeeded(/* isCommitting = */ false);
+      this.addLineEditorIfNeeded(/* isCommitting = */ false);
     }
   }
 
@@ -941,6 +973,7 @@ class AnnotationEditorLayer {
     }
     this.addInkEditorIfNeeded(/* isCommitting = */ false);
     this.addSquareEditorIfNeeded(/* isCommitting = */ false);
+    this.addLineEditorIfNeeded(/* isCommitting = */ false);
   }
 
   /**

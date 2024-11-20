@@ -66,6 +66,18 @@ class Toolbar {
       { element: options.print, eventName: "print" },
       { element: options.download, eventName: "download" },
       {
+        element: options.editorLineButton,
+        eventName: "switchannotationeditormode",
+        eventDetails: {
+          get mode() {
+            const { classList } = options.editorLineButton;
+            return classList.contains("toggled")
+              ? AnnotationEditorType.NONE
+              : AnnotationEditorType.LINE;
+          },
+        },
+      },
+      {
         element: options.editorSquareButton,
         eventName: "switchannotationeditormode",
         eventDetails: {
@@ -262,6 +274,8 @@ class Toolbar {
 
   #editorModeChanged({ mode }) {
     const {
+      editorLineButton,
+      editorLineParamsToolbar,
       editorSquareButton,
       editorSquareParamsToolbar,
       editorFreeTextButton,
@@ -273,7 +287,11 @@ class Toolbar {
       editorStampButton,
       editorStampParamsToolbar,
     } = this.#opts;
-
+    toggleCheckedBtn(
+      editorLineButton,
+      mode === AnnotationEditorType.LINE,
+      editorLineParamsToolbar
+    );
     toggleCheckedBtn(
       editorSquareButton,
       mode === AnnotationEditorType.SQUARE,
@@ -301,6 +319,7 @@ class Toolbar {
     );
 
     const isDisable = mode === AnnotationEditorType.DISABLE;
+    editorLineButton.disabled = isDisable;
     editorSquareButton.disabled = isDisable;
     editorFreeTextButton.disabled = isDisable;
     editorHighlightButton.disabled = isDisable;

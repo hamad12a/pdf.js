@@ -56,7 +56,8 @@ function getViewerConfiguration() {
       ),
       editorSquareButton: document.getElementById("editorSquare"),
       editorSquareParamsToolbar: document.getElementById(
-        "editorSquareParamsToolbar"),
+        "editorSquareParamsToolbar"
+      ),
       editorHighlightButton: document.getElementById("editorHighlight"),
       editorHighlightParamsToolbar: document.getElementById(
         "editorHighlightParamsToolbar"
@@ -64,6 +65,8 @@ function getViewerConfiguration() {
       editorHighlightColorPicker: document.getElementById(
         "editorHighlightColorPicker"
       ),
+      editorLineButton: document.getElementById("editorLine"),
+      editorLineParamsToolbar: document.getElementById("editorLineParamsToolbar"),
       editorInkButton: document.getElementById("editorInk"),
       editorInkParamsToolbar: document.getElementById("editorInkParamsToolbar"),
       editorStampButton: document.getElementById("editorStamp"),
@@ -216,6 +219,9 @@ function getViewerConfiguration() {
       editorFreeTextFontSize: document.getElementById("editorFreeTextFontSize"),
       editorFreeTextColor: document.getElementById("editorFreeTextColor"),
       editorSquareColor: document.getElementById("editorSquareColor"),
+      editorLineColor: document.getElementById("editorLineColor"),
+      editorLineThickness: document.getElementById("editorLineThickness"),
+      editorLineOpacity: document.getElementById("editorLineOpacity"),
       editorInkColor: document.getElementById("editorInkColor"),
       editorInkThickness: document.getElementById("editorInkThickness"),
       editorInkOpacity: document.getElementById("editorInkOpacity"),
@@ -255,28 +261,28 @@ function webViewerLoad() {
       document.dispatchEvent(event);
     }
   }
-  
-const pdfViewer = document.querySelector('.pdfViewer');
-const brightnessInputElement = document.getElementById('editorBrightness');
-const sepiaInputElement = document.getElementById('editorSepia');
-const darkInputElement = document.getElementById('editorDark');
 
-// Function to update filters
-function updateFilters() {
-  const brightnessInput = parseFloat(brightnessInputElement.value);
-  const sepiaInput = parseFloat(sepiaInputElement.value);
-  const darkInput = parseFloat(darkInputElement.value);
-  
-  pdfViewer.style.filter = `brightness(${1-darkInput}) sepia(${sepiaInput}) brightness(${brightnessInput+1})`;
-}
+  const pdfViewer = document.querySelector(".pdfViewer");
+  const brightnessInputElement = document.getElementById("editorBrightness");
+  const sepiaInputElement = document.getElementById("editorSepia");
+  const darkInputElement = document.getElementById("editorDark");
 
-// Add event listeners to the input elements
-brightnessInputElement.addEventListener('input', updateFilters);
-sepiaInputElement.addEventListener('input', updateFilters);
-darkInputElement.addEventListener('input', updateFilters);
+  // Function to update filters
+  function updateFilters() {
+    const brightnessInput = parseFloat(brightnessInputElement.value);
+    const sepiaInput = parseFloat(sepiaInputElement.value);
+    const darkInput = parseFloat(darkInputElement.value);
 
-// Initial call to set the filters based on the current input values
-updateFilters();
+    pdfViewer.style.filter = `brightness(${1 - darkInput}) sepia(${sepiaInput}) brightness(${brightnessInput + 1})`;
+  }
+
+  // Add event listeners to the input elements
+  brightnessInputElement.addEventListener("input", updateFilters);
+  sepiaInputElement.addEventListener("input", updateFilters);
+  darkInputElement.addEventListener("input", updateFilters);
+
+  // Initial call to set the filters based on the current input values
+  updateFilters();
 
   PDFViewerApplication.run(config);
 }

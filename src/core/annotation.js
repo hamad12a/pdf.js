@@ -378,7 +378,12 @@ class AnnotationFactory {
           promises.push(
             SquareAnnotation.createNewAnnotation(xref, annotation, dependencies)
           );
-          break;  
+          break;
+        case AnnotationEditorType.LINE:
+          promises.push(
+            LineAnnotation.createNewAnnotation(xref, annotation, dependencies)
+          );
+          break;
         case AnnotationEditorType.INK:
           promises.push(
             InkAnnotation.createNewAnnotation(xref, annotation, dependencies)
@@ -491,18 +496,30 @@ class AnnotationFactory {
             )
           );
           break;
-          case AnnotationEditorType.SQUARE:
-            promises.push(
-              InkAnnotation.createNewPrintAnnotation(
-                annotationGlobals,
-                xref,
-                annotation,
-                {
-                  evaluatorOptions: options,
-                }
-              )
-            );
-            break;
+        case AnnotationEditorType.LINE:
+          promises.push(
+            InkAnnotation.createNewPrintAnnotation(
+              annotationGlobals,
+              xref,
+              annotation,
+              {
+                evaluatorOptions: options,
+              }
+            )
+          );
+          break;
+        case AnnotationEditorType.SQUARE:
+          promises.push(
+            InkAnnotation.createNewPrintAnnotation(
+              annotationGlobals,
+              xref,
+              annotation,
+              {
+                evaluatorOptions: options,
+              }
+            )
+          );
+          break;
         case AnnotationEditorType.STAMP:
           if (!options.isOffscreenCanvasSupported) {
             break;

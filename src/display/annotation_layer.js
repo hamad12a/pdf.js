@@ -2592,7 +2592,7 @@ class SquareAnnotationElement extends AnnotationElement {
 
   constructor(parameters) {
     super(parameters, { isRenderable: true, ignoreBorder: true });
-    // this.annotationEditorType = AnnotationEditorType.SQUARE;
+    this.annotationEditorType = AnnotationEditorType.SQUARE;
   }
 
   render() {
@@ -3252,6 +3252,7 @@ export {
   AnnotationLayer,
   FreeTextAnnotationElement,
   InkAnnotationElement,
+  SquareAnnotationElement,
+  LineAnnotationElement,
   StampAnnotationElement,
-  SquareAnnotationElement
 };

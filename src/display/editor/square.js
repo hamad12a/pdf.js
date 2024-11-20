@@ -91,24 +91,24 @@ class SquareEditor extends AnnotationEditor {
   canvasPointermove(event) {
     event.preventDefault();
     if (this.isResizing) {
-        this.resizeRectangle(event.offsetX, event.offsetY);
+      this.resizeRectangle(event.offsetX, event.offsetY);
     } else {
-        this.#draw(event.offsetX, event.offsetY);
+      this.#draw(event.offsetX, event.offsetY);
     }
-}
+  }
 
-resizeRectangle(mouseX, mouseY) {
-  // Assuming you have a reference to the currently selected rectangle
-  const currentRect = this.selectedRectangle; // This should be set when a resizer is grabbed
-  if (currentRect) {
+  resizeRectangle(mouseX, mouseY) {
+    // Assuming you have a reference to the currently selected rectangle
+    const currentRect = this.selectedRectangle; // This should be set when a resizer is grabbed
+    if (currentRect) {
       // Update the rectangle's width and height based on the mouse position
       currentRect.width = mouseX - currentRect.startX;
       currentRect.height = mouseY - currentRect.startY;
 
       // Redraw the canvas with the updated rectangle
       this.#redraw();
+    }
   }
-}
 
   canvasPointerup(event) {
     event.preventDefault();
@@ -174,7 +174,6 @@ resizeRectangle(mouseX, mouseY) {
       this.commit();
     }
 
-    
     this.canvas.width = this.canvas.height = 0;
     this.canvas.remove();
     this.canvas = null;
@@ -188,6 +187,20 @@ resizeRectangle(mouseX, mouseY) {
     this.#observer = null;
 
     super.remove();
+  }
+
+  setParent(parent) {
+    if (!this.parent && parent) {
+      // We've a parent hence the rescale will be handled thanks to the
+      // ResizeObserver.
+      this._uiManager.removeShouldRescale(this);
+    } else if (this.parent && parent === null) {
+      // The editor is removed from the DOM, hence we handle the rescale thanks
+      // to the onScaleChanging callback.
+      // This way, it'll be saved/printed correctly.
+      this._uiManager.addShouldRescale(this);
+    }
+    super.setParent(parent);
   }
 
   enableEditMode() {
@@ -220,7 +233,7 @@ resizeRectangle(mouseX, mouseY) {
   onceAdded() {
     this._isDraggable = !this.isEmpty();
   }
-  
+
   isEmpty() {
     return this.rectangles.length === 0;
   }
@@ -245,10 +258,18 @@ resizeRectangle(mouseX, mouseY) {
   get isResizable() {
     return !this.isEmpty() && this.#disableEditing;
   }
-  
+
   #setStroke() {
-    const { ctx, color, opacity, thickness, parentScale, scaleFactor } = this;
-    ctx.lineWidth = (thickness * parentScale) / scaleFactor;
+    const { ctx, color, opacity, thickness } = this;
+
+    // Use a fixed line width
+    const fixedLineWidth = thickness; // Set your desired fixed line width
+
+    // Adjust the line width based on the scale factors
+    // Use the scale factor that corresponds to the direction of stretching
+    ctx.lineWidth =
+      fixedLineWidth / Math.max(this.scaleFactorX, this.scaleFactorY);
+
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
     ctx.miterLimit = 10;
@@ -258,28 +279,38 @@ resizeRectangle(mouseX, mouseY) {
   #startDrawing(x, y) {
     const signal = this._uiManager._signal;
     this.canvas.addEventListener("contextmenu", noContextMenu, { signal });
-    this.canvas.addEventListener("pointerleave", this.#boundCanvasPointerleave, { signal });
-    this.canvas.addEventListener("pointermove", this.#boundCanvasPointermove, { signal });
-    this.canvas.addEventListener("pointerup", this.#boundCanvasPointerup, { signal });
+    this.canvas.addEventListener(
+      "pointerleave",
+      this.#boundCanvasPointerleave,
+      { signal }
+    );
+    this.canvas.addEventListener("pointermove", this.#boundCanvasPointermove, {
+      signal,
+    });
+    this.canvas.addEventListener("pointerup", this.#boundCanvasPointerup, {
+      signal,
+    });
 
-    this.canvas.removeEventListener("pointerdown", this.#boundCanvasPointerdown);
+    this.canvas.removeEventListener(
+      "pointerdown",
+      this.#boundCanvasPointerdown
+    );
 
     this.isEditing = true;
     if (!this.#isCanvasInitialized) {
       this.#isCanvasInitialized = true;
       this.#setCanvasDims();
       this.thickness ||= SquareEditor._defaultThickness;
-      this.color ||= SquareEditor._defaultColor || AnnotationEditor._defaultLineColor;
+      this.color ||=
+        SquareEditor._defaultColor || AnnotationEditor._defaultLineColor;
       this.opacity ??= SquareEditor._defaultOpacity;
     }
     this.currentPath.push([x, y]);
     this.#hasSomethingToDraw = false;
     this.#setStroke();
-
-    
     this.#requestFrameCallback = () => {
       if (this.#requestFrameCallback) {
-        window.requestAnimationFrame(this.#requestFrameCallback); 
+        window.requestAnimationFrame(this.#requestFrameCallback);
       }
     };
     window.requestAnimationFrame(this.#requestFrameCallback);
@@ -289,33 +320,32 @@ resizeRectangle(mouseX, mouseY) {
     const currentPath = this.currentPath;
 
     if (currentPath.length > 0) {
-        const [startX, startY] = currentPath[0];
-        const width = x - startX; 
-        const height = y - startY; 
+      const [startX, startY] = currentPath[0];
+      const width = x - startX;
+      const height = y - startY;
 
-        this.#currentPath2D = new Path2D();
-        const path2D = this.#currentPath2D;
+      this.#currentPath2D = new Path2D();
+      const path2D = this.#currentPath2D;
 
-        const rectX = Math.min(startX, x); 
-        const rectY = Math.min(startY, y); 
-        const rectWidth = Math.abs(width); 
-        const rectHeight = Math.abs(height); 
+      const rectX = Math.min(startX, x);
+      const rectY = Math.min(startY, y);
+      const rectWidth = Math.abs(width);
+      const rectHeight = Math.abs(height);
 
-        path2D.rect(rectX, rectY, rectWidth, rectHeight);
-        
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        
-        for (const rect of this.rectangles) {
-            this.ctx.strokeRect(rect.startX, rect.startY, rect.width, rect.height);
-        }
+      path2D.rect(rectX, rectY, rectWidth, rectHeight);
 
-        this.ctx.stroke(path2D);
-        currentPath[1] = [x, y];
+      this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+      for (const rect of this.rectangles) {
+        this.ctx.strokeRect(rect.startX, rect.startY, rect.width, rect.height);
+      }
+
+      this.ctx.stroke(path2D);
+      currentPath[1] = [x, y];
     } else {
-        currentPath.push([x, y]);
-        this.#hasSomethingToDraw = false;
+      currentPath.push([x, y]);
+      this.#hasSomethingToDraw = false;
     }
-
   }
 
   #stopDrawing(x, y) {
@@ -324,27 +354,38 @@ resizeRectangle(mouseX, mouseY) {
     x = Math.min(Math.max(x, 0), this.canvas.width);
     y = Math.min(Math.max(y, 0), this.canvas.height);
 
-    this.#draw(x, y); 
-    
+    this.#draw(x, y);
+
     const currentPath = this.currentPath;
     if (currentPath.length > 0) {
-        const [startX, startY] = currentPath[0];
-        const width = x - startX; 
-        const height = y - startY; 
-        const rectX = Math.min(startX, x); 
-        const rectY = Math.min(startY, y); 
-        const rectWidth = Math.abs(width); 
-        const rectHeight = Math.abs(height); 
+      const [startX, startY] = currentPath[0];
+      const width = x - startX;
+      const height = y - startY;
+      const rectX = Math.min(startX, x);
+      const rectY = Math.min(startY, y);
+      const rectWidth = Math.abs(width);
+      const rectHeight = Math.abs(height);
 
-        this.rectangles.push({ startX: rectX, startY: rectY, width: rectWidth, height: rectHeight }); 
+      this.rectangles.push({
+        startX: rectX,
+        startY: rectY,
+        width: rectWidth,
+        height: rectHeight,
+      });
     }
 
     this.currentPath = [];
   }
 
   #endDrawing(event) {
-    this.canvas.removeEventListener("pointerleave", this.#boundCanvasPointerleave);
-    this.canvas.removeEventListener("pointermove", this.#boundCanvasPointermove);
+    this.canvas.removeEventListener(
+      "pointerleave",
+      this.#boundCanvasPointerleave
+    );
+    this.canvas.removeEventListener(
+      "pointermove",
+      this.#boundCanvasPointermove
+    );
     this.canvas.removeEventListener("pointerup", this.#boundCanvasPointerup);
     this.canvas.addEventListener("pointerdown", this.#boundCanvasPointerdown, {
       signal: this._uiManager._signal,
@@ -371,16 +412,15 @@ resizeRectangle(mouseX, mouseY) {
     let yMax = -Infinity;
 
     for (const rect of this.rectangles) {
-        const { startX, startY, width, height } = rect;
-        xMin = Math.min(xMin, startX);
-        yMin = Math.min(yMin, startY);
-        xMax = Math.max(xMax, startX + width);
-        yMax = Math.max(yMax, startY + height);
+      const { startX, startY, width, height } = rect;
+      xMin = Math.min(xMin, startX);
+      yMin = Math.min(yMin, startY);
+      xMax = Math.max(xMax, startX + width);
+      yMax = Math.max(yMax, startY + height);
     }
 
     return [xMin, yMin, xMax, yMax];
   }
-
 
   focusin(event) {
     if (!this._focusEventsAllowed) {
@@ -400,10 +440,9 @@ resizeRectangle(mouseX, mouseY) {
     this.ctx = this.canvas.getContext("2d");
   }
 
-
   commit() {
     if (this.#disableEditing) {
-        return;
+      return;
     }
 
     super.commit();
@@ -420,10 +459,10 @@ resizeRectangle(mouseX, mouseY) {
     this.select();
 
     this.parent.addSquareEditorIfNeeded(/* isCommitting = */ true);
-    
+
     this.moveInDOM();
     this.div.focus({
-        preventScroll: true /* See issue #15744 */,
+      preventScroll: true /* See issue #15744 */,
     });
   }
 
@@ -449,7 +488,6 @@ resizeRectangle(mouseX, mouseY) {
     this.#createCanvas();
 
     if (this.width) {
-      
       const [parentWidth, parentHeight] = this.parentDimensions;
       this.setAt(
         baseX * parentWidth,
@@ -468,7 +506,7 @@ resizeRectangle(mouseX, mouseY) {
     }
 
     this.#createObserver();
-    
+
     return this.div;
   }
 
@@ -477,7 +515,6 @@ resizeRectangle(mouseX, mouseY) {
       ? Math.ceil(this.thickness * this.parentScale)
       : 0;
   }
-
 
   #createObserver() {
     this.#observer = new ResizeObserver(entries => {
@@ -497,16 +534,16 @@ resizeRectangle(mouseX, mouseY) {
     );
   }
 
-   /**
+  /**
    * of div to be set eventually to canvas.
    * @param {number} width
    * @param {number} height
    */
-  
+
   setDimensions(width, height) {
     const roundedWidth = Math.round(width);
     const roundedHeight = Math.round(height);
-    
+
     this.#realWidth = roundedWidth;
     this.#realHeight = roundedHeight;
 
@@ -523,11 +560,9 @@ resizeRectangle(mouseX, mouseY) {
       const scaleFactorH = (height - padding) / this.#baseHeight;
       // this.scaleFactor = Math.min(scaleFactorW, scaleFactorH); // scaleFactor is based on new width and height
       this.scaleFactorX = scaleFactorW;
-      this.scaleFactorY = scaleFactorH
-
-
+      this.scaleFactorY = scaleFactorH;
     }
-    // the new scaleFactor is passed to #updateTransform in #redraw 
+    // the new scaleFactor is passed to #updateTransform in #redraw
 
     this.#setCanvasDims(); // update canvas dims based on new dims of div
     this.#redraw(); // redraw based on new scaleFactor
@@ -545,10 +580,10 @@ resizeRectangle(mouseX, mouseY) {
 
   #redraw() {
     if (this.isEmpty()) {
-        this.#updateTransform();
-        return;
+      this.#updateTransform();
+      return;
     }
-    
+
     this.#setStroke();
 
     const { canvas, ctx } = this;
@@ -558,9 +593,8 @@ resizeRectangle(mouseX, mouseY) {
 
     // width and height of original shape's dims
     for (const rect of this.rectangles) {
-        ctx.strokeRect(rect.startX, rect.startY, rect.width, rect.height); 
+      ctx.strokeRect(rect.startX, rect.startY, rect.width, rect.height);
     }
-
   }
 
   #updateTransform() {
@@ -591,7 +625,7 @@ resizeRectangle(mouseX, mouseY) {
     this.#baseWidth = Math.max(AnnotationEditor.MIN_SIZE, bbox[2] - bbox[0]);
     this.#baseHeight = Math.max(AnnotationEditor.MIN_SIZE, bbox[3] - bbox[1]);
 
-    const width = Math.ceil(padding + this.#baseWidth   * this.scaleFactor); 
+    const width = Math.ceil(padding + this.#baseWidth * this.scaleFactor);
     const height = Math.ceil(padding + this.#baseHeight * this.scaleFactor);
 
     const [parentWidth, parentHeight] = this.parentDimensions;
@@ -615,11 +649,10 @@ resizeRectangle(mouseX, mouseY) {
       prevTranslationX - this.translationX - unscaledPadding,
       prevTranslationY - this.translationY - unscaledPadding
     );
-
   }
 
   static #toPDFCoordinates(points, rect, rotation) {
-    const [blX, blY, trX, trY] = rect;
+    const [blX, blY] = rect;
     const pdfPoints = points.map(([x, y]) => {
       switch (rotation) {
         case 90:
@@ -654,60 +687,41 @@ resizeRectangle(mouseX, mouseY) {
 
   #serializePaths(s, tx, ty, rect) {
     const rectangles = [];
-    // const padding = this.thickness ;
-    // const shiftX = s * tx + padding;
-    const shiftX = tx;
-    // const shiftY = s * ty + padding;
-    const shiftY = ty;
+    const shiftX = s * tx;
+    const shiftY = s * ty;
+    const points = [];
     for (const rectangle of this.rectangles) {
       const { startX, startY, width, height } = rectangle;
-      const points = [
-        [startX + shiftX, startY + shiftY],
-        [startX + width + shiftX, startY + shiftY],
-        [startX + width + shiftX, startY + height + shiftY],
-        [startX + shiftX, startY + height + shiftY],
-      ];
-      const pdfPoints = SquareEditor.#toPDFCoordinates(points, rect, this.rotation);
-      rectangles.push({ rectangle: pdfPoints });
-    }
+      
+      const p1 = s * (startX + shiftX);
+      const p2 = s * (startY + shiftY);
+
+      let p3 = 0, p4 = 0;
+      if (startX > width && startY > height) {
+        p3 = s * (startX - width + shiftX);
+        p4 = s * (startY - height + shiftY);
+      } else if (startX < width && startY < height) {
+        p3 = s * (startX + width + shiftX);
+        p4 = s * (startY + height + shiftY);
+      } else if (startX > width && startY < height) {
+        p3 = s * (startX - width + shiftX);
+        p4 = s * (startY + height + shiftY);
+      } else if (startX < width && startY > height) {
+        p3 = s * (startX + width + shiftX);
+        p4 = s * (startY - height + shiftY);
+      }
+      points.push(p1, p2, p3, p4);
+
+      const [blX, blY, trX, trY] = rect;
+      for (let i = 0, ii = points.length; i < ii; i += 2) {
+        points[i] += blX;
+        points[i + 1] += blY;
+      }
+      rectangles.push({ rectangle: points });
+
     return rectangles;
   }
-
-  static deserialize(data, parent, uiManager) {
-    if (data instanceof SquareAnnotationElement) {
-      return null;
-    }
-    const editor = super.deserialize(data, parent, uiManager);
-
-    editor.thickness = data.thickness;
-    editor.color = Util.makeHexColor(...data.color);
-    editor.opacity = data.opacity;
-
-    const [pageWidth, pageHeight] = editor.pageDimensions;
-    const width = editor.width * pageWidth;
-    const height = editor.height * pageHeight;
-    const scaleFactor = editor.parentScale;
-    const padding = data.thickness / 2;
-
-    editor.#disableEditing = true;
-    editor.#realWidth = Math.round(width);
-    editor.#realHeight = Math.round(height);
-
-    const { paths, rect, rotation } = data;
-
-    for (let { rectangle } of paths) {
-      const editorPoints = SquareEditor.#fromPDFCoordinates(rectangle, rect, rotation);
-      const [startX, startY] = editorPoints[0];
-      editor.rectangles.push({ startX, startY, width, height});
-    }
-
-    const bbox = editor.#getBbox();
-    editor.#baseWidth = Math.max(AnnotationEditor.MIN_SIZE, bbox[2] - bbox[0]);
-    editor.#baseHeight = Math.max(AnnotationEditor.MIN_SIZE, bbox[3] - bbox[1]);
-    // editor.#setScaleFactor(width, height);
-
-    return editor;
-  }
+}
 
   serialize() {
     if (this.isEmpty()) {
@@ -734,6 +748,47 @@ resizeRectangle(mouseX, mouseY) {
       structTreeParentId: this._structTreeParentId,
     };
   }
+
+  static deserialize(data, parent, uiManager) {
+    if (data instanceof SquareAnnotationElement) {
+      return null;
+    }
+    const editor = super.deserialize(data, parent, uiManager);
+
+    editor.thickness = data.thickness;
+    editor.color = Util.makeHexColor(...data.color);
+    editor.opacity = data.opacity;
+
+    const [pageWidth, pageHeight] = editor.pageDimensions;
+    const width = editor.width * pageWidth;
+    const height = editor.height * pageHeight;
+    const scaleFactor = editor.parentScale;
+    const padding = data.thickness / 2;
+
+    editor.#disableEditing = true;
+    editor.#realWidth = Math.round(width);
+    editor.#realHeight = Math.round(height);
+
+    const { paths, rect, rotation } = data;
+
+    for (const { rectangle } of paths) {
+      const editorPoints = SquareEditor.#fromPDFCoordinates(
+        rectangle,
+        rect,
+        rotation
+      );
+      const [startX, startY] = editorPoints[0];
+      editor.rectangles.push({ startX, startY, width, height });
+    }
+
+    const bbox = editor.#getBbox();
+    editor.#baseWidth = Math.max(AnnotationEditor.MIN_SIZE, bbox[2] - bbox[0]);
+    editor.#baseHeight = Math.max(AnnotationEditor.MIN_SIZE, bbox[3] - bbox[1]);
+    // editor.#setScaleFactor(width, height);
+
+    return editor;
+  }
+
 }
 
 export { SquareEditor };
