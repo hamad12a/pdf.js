@@ -830,7 +830,24 @@ class LineEditor extends AnnotationEditor {
         p0 = p30;
         p1 = p31;
       }
-      const path2D = this.#buildPath2D(path);
+      // const path2D = this.#buildPath2D(path);
+      const path2D = new Path2D();
+      for (let i = 0, ii = path.length; i < ii; i++) {
+        const [first, control1, control2, second] = path[i];
+        if (i === 0) {
+          path2D.moveTo(...first);
+        }
+        path2D.bezierCurveTo(
+          control1[0],
+          control1[1],
+          control2[0],
+          control2[1],
+          second[0],
+          second[1]
+        );
+      }
+      // end of const path2D =
+
       editor.bezierPath2D.push(path2D);
     }
 
@@ -876,25 +893,6 @@ class LineEditor extends AnnotationEditor {
         throw new Error("Invalid rotation");
     }
     return points;
-  }
-
-  static #buildPath2D(bezier) {
-    const path2D = new Path2D();
-    for (let i = 0, ii = bezier.length; i < ii; i++) {
-      const [first, control1, control2, second] = bezier[i];
-      if (i === 0) {
-        path2D.moveTo(...first);
-      }
-      path2D.bezierCurveTo(
-        control1[0],
-        control1[1],
-        control2[0],
-        control2[1],
-        second[0],
-        second[1]
-      );
-    }
-    return path2D;
   }
 
   #setScaleFactor(width, height) {
