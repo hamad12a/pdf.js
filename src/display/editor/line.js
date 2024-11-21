@@ -50,7 +50,7 @@ class LineEditor extends AnnotationEditor {
 
   canvasPointerup(event) {
     event.preventDefault();
-    // #endDrawing
+    //begin #endDrawing
     this.canvas.removeEventListener("pointerleave", this.#boundCanvasPointerleave);
     this.canvas.removeEventListener("pointermove", this.#boundCanvasPointermove);
     this.canvas.removeEventListener("pointerup", this.#boundCanvasPointerup);
@@ -110,7 +110,7 @@ class LineEditor extends AnnotationEditor {
     super.render();
 
     this.div.setAttribute("data-l10n-id", "pdfjs-ink");
-    // const [x,y,w,h] = this.#getInitialBBox
+    //begin const [x,y,w,h] = this.#getInitialBBox
     const {
       parentRotation,
       parentDimensions: [width, height],
@@ -261,7 +261,7 @@ class LineEditor extends AnnotationEditor {
       this.#updateTransform();
       return;
     }
-    // this.#setStroke();
+    //begin this.#setStroke();
     this.ctx.lineWidth = (this.thickness * this.parentScale) / this.scaleFactor;
     this.ctx.lineCap = "round";
     this.ctx.lineJoin = "round";
@@ -345,7 +345,7 @@ class LineEditor extends AnnotationEditor {
     }
     this.currentPath.push([x, y]);
     this.#hasSomethingToDraw = false;
-    // this.#setStroke();
+    //begin this.#setStroke();
     this.ctx.lineWidth = (this.thickness * this.parentScale) / this.scaleFactor;
     this.ctx.lineCap = "round";
     this.ctx.lineJoin = "round";
@@ -354,7 +354,7 @@ class LineEditor extends AnnotationEditor {
     // end of this.#setStroke();
 
     this.#requestFrameCallback = () => {
-      // this.#drawPoints();
+      //begin this.#drawPoints();
       if (!this.#hasSomethingToDraw) {
       // Continue to the next condition
       } else {
@@ -475,7 +475,7 @@ class LineEditor extends AnnotationEditor {
     y = Math.min(Math.max(y, 0), this.canvas.height);
 
     this.#draw(x, y);
-    // this.#endPath();
+    //begin this.#endPath();
     if (this.currentPath.length === 0) {
       return;
     }
@@ -483,53 +483,10 @@ class LineEditor extends AnnotationEditor {
     this.#currentPath2D.lineTo(...lastPoint);
     // end of #endPath
 
-    // Interpolate the path entered by the user with some
-    // Bezier's curves in order to have a smoother path and
-    // to reduce the data size used to draw it in the PDF.
     let bezier;
-    if (this.currentPath.length !== 1) {
-      // bezier = this.#generateBezierPoints();
-      const path = this.currentPath;
-      if (path.length <= 2) {
-        return [[path[0], path[0], path.at(-1), path.at(-1)]];
-      }
-  
-      const bezierPoints = [];
-      let i;
-      let [x0, y0] = path[0];
-      for (i = 1; i < path.length - 2; i++) {
-        const [x1, y1] = path[i];
-        const [x2, y2] = path[i + 1];
-        const x3 = (x1 + x2) / 2;
-        const y3 = (y1 + y2) / 2;
-  
-        // The quadratic is: [[x0, y0], [x1, y1], [x3, y3]].
-        // Convert the quadratic to a cubic
-        // (see https://fontforge.org/docs/techref/bezier.html#converting-truetype-to-postscript)
-        const control1 = [x0 + (2 * (x1 - x0)) / 3, y0 + (2 * (y1 - y0)) / 3];
-        const control2 = [x3 + (2 * (x1 - x3)) / 3, y3 + (2 * (y1 - y3)) / 3];
-  
-        bezierPoints.push([[x0, y0], control1, control2, [x3, y3]]);
-  
-        [x0, y0] = [x3, y3];
-      }
-  
-      const [x1, y1] = path[i];
-      const [x2, y2] = path[i + 1];
-  
-      // The quadratic is: [[x0, y0], [x1, y1], [x2, y2]].
-      const control1 = [x0 + (2 * (x1 - x0)) / 3, y0 + (2 * (y1 - y0)) / 3];
-      const control2 = [x2 + (2 * (x1 - x2)) / 3, y2 + (2 * (y1 - y2)) / 3];
-  
-      bezierPoints.push([[x0, y0], control1, control2, [x2, y2]]);
-      bezier = bezierPoints;
-      // end of #generateBezierPoints
+    const path = this.currentPath;
 
-    } else {
-      // We have only one point finally.
-      const xy = [x, y];
-      bezier = [[xy, xy.slice(), xy.slice(), xy]];
-    }
+    bezier = [[path[0], path[0], path.at(-1), path.at(-1)]];
     const path2D = this.#currentPath2D;
     const currentPath = this.currentPath;
     this.currentPath = [];
@@ -581,23 +538,26 @@ class LineEditor extends AnnotationEditor {
       path2D.moveTo(...currentPath[0]);
     }
 
-    // this.#makeBezierCurve(path2D,...currentPath.at(-3),...currentPath.at(-2),x,y);
-    const [x0, y0] =  currentPath.at(-3);
-    const [x1, y1] =  currentPath.at(-2);
-    const [x2, y2] =  [x, y];
-    const prevX = (x0 + x1) / 2;
-    const prevY = (y0 + y1) / 2;
-    const x3 = (x1 + x2) / 2;
-    const y3 = (y1 + y2) / 2;
+    //begin this.#makeBezierCurve(path2D,...currentPath.at(-3),...currentPath.at(-2),x,y);
+    // const [x0, y0] =  currentPath.at(-3);
+    // const [x1, y1] =  currentPath.at(-2);
+    // const [x2, y2] =  [x, y];
+    // const prevX = (x0 + x1) / 2;
+    // const prevY = (y0 + y1) / 2;
+    // const x3 = (x1 + x2) / 2;
+    // const y3 = (y1 + y2) / 2;
 
-    path2D.bezierCurveTo(
-      prevX + (2 * (x1 - prevX)) / 3,
-      prevY + (2 * (y1 - prevY)) / 3,
-      x3 + (2 * (x1 - x3)) / 3,
-      y3 + (2 * (y1 - y3)) / 3,
-      x3,
-      y3
-    );
+    // path2D.bezierCurveTo(
+    //   prevX + (2 * (x1 - prevX)) / 3,
+    //   prevY + (2 * (y1 - prevY)) / 3,
+    //   x3 + (2 * (x1 - x3)) / 3,
+    //   y3 + (2 * (y1 - y3)) / 3,
+    //   x3,
+    //   y3
+    // );
+    // path2D.move(x, y)
+    // path2D.moveTo(x, y);
+    path2D.lineTo(x, y);
     // end of this.#makeBezierCurve
   }
 
@@ -852,7 +812,7 @@ class LineEditor extends AnnotationEditor {
         p0 = p30;
         p1 = p31;
       }
-      // const path2D = this.#buildPath2D(path);
+      //begin const path2D = this.#buildPath2D(path);
       const path2D = new Path2D();
       for (let i = 0, ii = path.length; i < ii; i++) {
         const [first, control1, control2, second] = path[i];
