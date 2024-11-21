@@ -50,7 +50,31 @@ class LineEditor extends AnnotationEditor {
 
   canvasPointerup(event) {
     event.preventDefault();
-    this.#endDrawing(event);
+    // #endDrawing
+    this.canvas.removeEventListener("pointerleave", this.#boundCanvasPointerleave);
+    this.canvas.removeEventListener("pointermove", this.#boundCanvasPointermove);
+    this.canvas.removeEventListener("pointerup", this.#boundCanvasPointerup);
+    this.canvas.addEventListener("pointerdown", this.#boundCanvasPointerdown, {
+      signal: this._uiManager._signal,
+    });
+
+    // Slight delay to avoid the context menu to appear (it can happen on a long
+    // tap with a pen).
+    if (this.#canvasContextMenuTimeoutId) {
+      clearTimeout(this.#canvasContextMenuTimeoutId);
+    }
+    this.#canvasContextMenuTimeoutId = setTimeout(() => {
+      this.#canvasContextMenuTimeoutId = null;
+      this.canvas.removeEventListener("contextmenu", noContextMenu);
+    }, 10);
+
+    this.#stopDrawing(event.offsetX, event.offsetY); // disabling this will disable stopdrawing and doesn't save the drawing!
+
+    this.addToAnnotationStorage();
+
+    // Since the ink editor covers all of the page and we want to be able
+    // to select another editor, we just put this one in the background.
+    this.setInBackground();
   }
   canvasPointermove(event) {
     event.preventDefault();
@@ -237,8 +261,13 @@ class LineEditor extends AnnotationEditor {
       this.#updateTransform();
       return;
     }
-    this.#setStroke();
-
+    // this.#setStroke();
+    this.ctx.lineWidth = (this.thickness * this.parentScale) / this.scaleFactor;
+    this.ctx.lineCap = "round";
+    this.ctx.lineJoin = "round";
+    this.ctx.miterLimit = 10;
+    this.ctx.strokeStyle = `${this.color}${opacityToHex(this.opacity)}`;
+    // end of this.#setStroke();
     const { canvas, ctx } = this;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -316,7 +345,13 @@ class LineEditor extends AnnotationEditor {
     }
     this.currentPath.push([x, y]);
     this.#hasSomethingToDraw = false;
-    this.#setStroke();
+    // this.#setStroke();
+    this.ctx.lineWidth = (this.thickness * this.parentScale) / this.scaleFactor;
+    this.ctx.lineCap = "round";
+    this.ctx.lineJoin = "round";
+    this.ctx.miterLimit = 10;
+    this.ctx.strokeStyle = `${this.color}${opacityToHex(this.opacity)}`;
+    // end of this.#setStroke();
 
     this.#requestFrameCallback = () => {
       // this.#drawPoints();
@@ -381,15 +416,6 @@ class LineEditor extends AnnotationEditor {
     ];
   }
 
-  #setStroke() {
-    const { ctx, color, opacity, thickness, parentScale, scaleFactor } = this;
-    ctx.lineWidth = (thickness * parentScale) / scaleFactor;
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    ctx.miterLimit = 10;
-    ctx.strokeStyle = `${color}${opacityToHex(opacity)}`;
-  }
-
   remove() {
     if (this.canvas === null) {
       return;
@@ -416,10 +442,6 @@ class LineEditor extends AnnotationEditor {
   }
 
   canvasPointerleave(event) {
-    this.#endDrawing(event);
-  }
-
-  #endDrawing(event) {
     this.canvas.removeEventListener("pointerleave", this.#boundCanvasPointerleave);
     this.canvas.removeEventListener("pointermove", this.#boundCanvasPointermove);
     this.canvas.removeEventListener("pointerup", this.#boundCanvasPointerup);
