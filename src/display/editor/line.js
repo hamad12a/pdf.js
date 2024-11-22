@@ -30,6 +30,7 @@ class LineEditor extends AnnotationEditor {
   static _type = "line";
   static _editorType = AnnotationEditorType.LINE;
 
+  // bezierPath2D is the number of drawings delimitted by clicking and releasing for each drawing
   static initialize(l10n, uiManager) {
     AnnotationEditor.initialize(l10n, uiManager);
   }
@@ -50,7 +51,6 @@ class LineEditor extends AnnotationEditor {
 
   canvasPointerup(event) {
     event.preventDefault();
-    //begin #endDrawing
     this.canvas.removeEventListener("pointerleave", this.#boundCanvasPointerleave);
     this.canvas.removeEventListener("pointermove", this.#boundCanvasPointermove);
     this.canvas.removeEventListener("pointerup", this.#boundCanvasPointerup);
@@ -58,8 +58,6 @@ class LineEditor extends AnnotationEditor {
       signal: this._uiManager._signal,
     });
 
-    // Slight delay to avoid the context menu to appear (it can happen on a long
-    // tap with a pen).
     if (this.#canvasContextMenuTimeoutId) {
       clearTimeout(this.#canvasContextMenuTimeoutId);
     }
@@ -71,9 +69,6 @@ class LineEditor extends AnnotationEditor {
     this.#stopDrawing(event.offsetX, event.offsetY); // disabling this will disable stopdrawing and doesn't save the drawing!
 
     this.addToAnnotationStorage();
-
-    // Since the ink editor covers all of the page and we want to be able
-    // to select another editor, we just put this one in the background.
     this.setInBackground();
   }
   canvasPointermove(event) {
@@ -100,22 +95,17 @@ class LineEditor extends AnnotationEditor {
     if (this.div) {
       return this.div;
     }
-
     let baseX, baseY;
     if (this.width) {
       baseX = this.x;
       baseY = this.y;
     }
-
     super.render();
-
     this.div.setAttribute("data-l10n-id", "pdfjs-ink");
-    //begin const [x,y,w,h] = this.#getInitialBBox
     const {
       parentRotation,
       parentDimensions: [width, height],
     } = this;
-    
     let x, y, w, h;
     switch (parentRotation) {
       case 90:
@@ -133,11 +123,8 @@ class LineEditor extends AnnotationEditor {
     };
     this.setAt(x, y, 0, 0);
     this.setDims(w, h);
-
     this.#createCanvas();
-
     if (this.width) {
-      // This editor was created in using copy (ctrl+c).
       const [parentWidth, parentHeight] = this.parentDimensions;
       this.setAspectRatio(this.width * parentWidth, this.height * parentHeight);
       this.setAt(
@@ -166,7 +153,6 @@ class LineEditor extends AnnotationEditor {
     this.canvas.width = this.canvas.height = 0;
     this.canvas.className = "lineEditorCanvas";
     this.canvas.setAttribute("data-l10n-id", "pdfjs-line-canvas");
-
     this.div.append(this.canvas);
     this.ctx = this.canvas.getContext("2d");
   }
@@ -175,7 +161,6 @@ class LineEditor extends AnnotationEditor {
     if (this.#disableEditing || this.canvas === null) {
       return;
     }
-
     super.enableEditMode();
     this._isDraggable = false;
     this.canvas.addEventListener("pointerdown", this.#boundCanvasPointerdown, {
@@ -261,13 +246,11 @@ class LineEditor extends AnnotationEditor {
       this.#updateTransform();
       return;
     }
-    //begin this.#setStroke();
     this.ctx.lineWidth = (this.thickness * this.parentScale) / this.scaleFactor;
     this.ctx.lineCap = "round";
     this.ctx.lineJoin = "round";
     this.ctx.miterLimit = 10;
     this.ctx.strokeStyle = `${this.color}${opacityToHex(this.opacity)}`;
-    // end of this.#setStroke();
     const { canvas, ctx } = this;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -300,7 +283,6 @@ class LineEditor extends AnnotationEditor {
     if (event.button !== 0 || !this.isInEditMode() || this.#disableEditing) {
       return;
     }
-
     this.setInForeground();
     event.preventDefault();
 
@@ -310,7 +292,6 @@ class LineEditor extends AnnotationEditor {
       });
     }
 
-    // this.#startDrawing(event.offsetX, event.offsetY);
     let x = event.offsetX;
     let y = event.offsetY;
     const signal = this._uiManager._signal;
@@ -342,18 +323,14 @@ class LineEditor extends AnnotationEditor {
     }
     this.currentPath.push([x, y]);
     this.#hasSomethingToDraw = false;
-    //begin this.#setStroke();
     this.ctx.lineWidth = (this.thickness * this.parentScale) / this.scaleFactor;
     this.ctx.lineCap = "round";
     this.ctx.lineJoin = "round";
     this.ctx.miterLimit = 10;
     this.ctx.strokeStyle = `${this.color}${opacityToHex(this.opacity)}`;
-    // end of this.#setStroke();
 
     this.#requestFrameCallback = () => {
-      //begin this.#drawPoints();
       if (!this.#hasSomethingToDraw) {
-      // Continue to the next condition
       } else {
       this.#hasSomethingToDraw = false;
       const thickness = Math.ceil(this.thickness * this.parentScale);
@@ -381,13 +358,11 @@ class LineEditor extends AnnotationEditor {
       ctx.stroke(this.#currentPath2D); // this draws only what we don't see!
       ctx.restore();
       }
-      // end of this.#drawPoints();
       if (this.#requestFrameCallback) {
       window.requestAnimationFrame(this.#requestFrameCallback);
       }
     };
     window.requestAnimationFrame(this.#requestFrameCallback);
-    // end of #startDrawing(x, y)
   }
 
   get isResizable() {
@@ -446,8 +421,6 @@ class LineEditor extends AnnotationEditor {
       signal: this._uiManager._signal,
     });
 
-    // Slight delay to avoid the context menu to appear (it can happen on a long
-    // tap with a pen).
     if (this.#canvasContextMenuTimeoutId) {
       clearTimeout(this.#canvasContextMenuTimeoutId);
     }
@@ -460,8 +433,6 @@ class LineEditor extends AnnotationEditor {
 
     this.addToAnnotationStorage();
 
-    // Since the ink editor covers all of the page and we want to be able
-    // to select another editor, we just put this one in the background.
     this.setInBackground();
   }
 
@@ -472,16 +443,9 @@ class LineEditor extends AnnotationEditor {
     y = Math.min(Math.max(y, 0), this.canvas.height);
 
     this.#draw(x, y);
-    //begin this.#endPath();
     if (this.currentPath.length === 0) {
       return;
     }
-    // const lastPoint = this.currentPath.at(-1);
-    // this.#currentPath2D.lineTo(...this.currentPath.at(-1));
-    // end of #endPath
-
-
-    // const path = this.currentPath;
 
     let bezier = [[this.currentPath[0], this.currentPath[0], this.currentPath.at(-1), this.currentPath.at(-1)]];
     const path2D = this.#currentPath2D;
@@ -520,10 +484,17 @@ class LineEditor extends AnnotationEditor {
     if (this.currentPath.length > 1 && x === lastX && y === lastY) {
       return;
     }
-    this.currentPath.push([x, y]);
+    if (this.currentPath.length === 1) {
+      this.currentPath.push([x, y]);
+    } else {
+      this.currentPath[1] = [x, y];
+    }
+    // this.#currentPath2D is responsible for saving the actual drawings before realeasing the pointer
+    this.#currentPath2D = new Path2D();
     this.#hasSomethingToDraw = true;
     this.#currentPath2D.moveTo(firstX, firstY);
     this.#currentPath2D.lineTo(x, y);
+
     
   }
 
@@ -539,13 +510,9 @@ class LineEditor extends AnnotationEditor {
     if (this.#disableEditing) {
       return;
     }
-
     super.commit();
-
     this.isEditing = false;
     this.disableEditMode();
-
-    // This editor must be on top of the main ink editor.
     this.setInForeground();
 
     this.#disableEditing = true;
@@ -556,8 +523,6 @@ class LineEditor extends AnnotationEditor {
 
     this.parent.addLineEditorIfNeeded(/* isCommitting = */ true);
 
-    // When committing, the position of this editor is changed, hence we must
-    // move it to the right position in the DOM.
     this.moveInDOM();
     this.div.focus({
       preventScroll: true /* See issue #15744 */,
