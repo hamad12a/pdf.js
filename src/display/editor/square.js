@@ -62,28 +62,18 @@ class SquareEditor extends AnnotationEditor {
     this.addToAnnotationStorage();
     this.setInBackground();
   }
-
   canvasPointermove(event) {
     event.preventDefault();
-    if (this.isResizing) {
-      //begin this.resizeRectangle(event.offsetX, event.offsetY);
-      const currentRect = this.selectedRectangle; // This should be set when a resizer is grabbed
-      if (currentRect) {
-        currentRect.width = mouseX - currentRect.startX;
-        currentRect.height = mouseY - currentRect.startY;
-        this.#redraw();
-      }
-      // end
-    } else {
-      this.#draw(event.offsetX, event.offsetY);
-    }
+    this.#draw(event.offsetX, event.offsetY);
   }
-
   constructor(params) {
     super({ ...params, name: "squareEditor" });
     this.color = params.color || null;
     this.thickness = params.thickness || null;
     this.opacity = params.opacity || null;
+    this.paths = [];
+    this.bezierPath2D = [];
+    this.allRawPaths = [];
     this.currentPath = [];
     this.translationX = this.translationY = 0;
     this.x = 0;
@@ -285,12 +275,15 @@ class SquareEditor extends AnnotationEditor {
     }
     this.setInForeground();
     event.preventDefault();
+
     if (!this.div.contains(document.activeElement)) {
       this.div.focus({
         preventScroll: true /* See issue #17327 */,
       });
     }
-    // begin this.#startDrawing(event.offsetX, event.offsetY);
+
+    let x = event.offsetX;
+    let y = event.offsetY;
     const signal = this._uiManager._signal;
     this.canvas.addEventListener("contextmenu", noContextMenu, { signal });
     this.canvas.addEventListener(
@@ -304,7 +297,6 @@ class SquareEditor extends AnnotationEditor {
     this.canvas.addEventListener("pointerup", this.#boundCanvasPointerup, {
       signal,
     });
-
     this.canvas.removeEventListener(
       "pointerdown",
       this.#boundCanvasPointerdown
@@ -319,24 +311,49 @@ class SquareEditor extends AnnotationEditor {
         SquareEditor._defaultColor || AnnotationEditor._defaultLineColor;
       this.opacity ??= SquareEditor._defaultOpacity;
     }
-    this.currentPath.push([event.offsetX, event.offsetY]);
+    this.currentPath.push([x, y]);
     this.#hasSomethingToDraw = false;
-    // begin this.#setStroke();
-    const { ctx, color, opacity, thickness } = this;
-    const fixedLineWidth = thickness; // Set your desired fixed line width
-    ctx.lineWidth = fixedLineWidth / Math.max(this.scaleFactorX, this.scaleFactorY);
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    ctx.miterLimit = 10;
-    ctx.strokeStyle = `${color}${opacityToHex(opacity)}`;
-    // end
+    this.ctx.lineWidth = (this.thickness * this.parentScale) / this.scaleFactor;
+    this.ctx.lineCap = "round";
+    this.ctx.lineJoin = "round";
+    this.ctx.miterLimit = 10;
+    this.ctx.strokeStyle = `${this.color}${opacityToHex(this.opacity)}`;
+    
     this.#requestFrameCallback = () => {
+      if (!this.#hasSomethingToDraw) {
+      } else {
+      this.#hasSomethingToDraw = false;
+      const thickness = Math.ceil(this.thickness * this.parentScale);
+      const lastPoints = this.currentPath.slice(-3);
+      const x = lastPoints.map(xy => xy[0]);
+      const y = lastPoints.map(xy => xy[1]);
+      const xMin = Math.min(...x) - thickness;
+      const xMax = Math.max(...x) + thickness;
+      const yMin = Math.min(...y) - thickness;
+      const yMax = Math.max(...y) + thickness;
+      const { ctx } = this;
+      ctx.save();
+      if (typeof PDFJSDev !== "undefined" && PDFJSDev.test("MOZCENTRAL")) {
+        // In Chrome, the clip() method doesn't work as expected.
+        ctx.clearRect(xMin, yMin, xMax - xMin, yMax - yMin);
+        ctx.beginPath();
+        ctx.rect(xMin, yMin, xMax - xMin, yMax - yMin);
+        ctx.clip();
+      } else {
+        ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+      }
+      for (const path of this.bezierPath2D) {
+        ctx.stroke(path); // this draws only what we see!
+      }
+      ctx.stroke(this.#currentPath2D); // this draws only what we don't see!
+      ctx.restore();
+      }
+
       if (this.#requestFrameCallback) {
         window.requestAnimationFrame(this.#requestFrameCallback);
       }
     };
     window.requestAnimationFrame(this.#requestFrameCallback);
-    // end
   }
 
   get isResizable() {
@@ -623,7 +640,7 @@ class SquareEditor extends AnnotationEditor {
     });
     return pdfPoints;
   }
-  
+
   static deserialize(data, parent, uiManager) {
     if (data instanceof SquareAnnotationElement) {
       return null;

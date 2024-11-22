@@ -359,7 +359,7 @@ class LineEditor extends AnnotationEditor {
       ctx.restore();
       }
       if (this.#requestFrameCallback) {
-      window.requestAnimationFrame(this.#requestFrameCallback);
+        window.requestAnimationFrame(this.#requestFrameCallback);
       }
     };
     window.requestAnimationFrame(this.#requestFrameCallback);
