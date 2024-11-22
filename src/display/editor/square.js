@@ -36,14 +36,8 @@ class SquareEditor extends AnnotationEditor {
 
   canvasPointerup(event) {
     event.preventDefault();
-    this.canvas.removeEventListener(
-      "pointerleave",
-      this.#boundCanvasPointerleave
-    );
-    this.canvas.removeEventListener(
-      "pointermove",
-      this.#boundCanvasPointermove
-    );
+    this.canvas.removeEventListener("pointerleave", this.#boundCanvasPointerleave);
+    this.canvas.removeEventListener("pointermove", this.#boundCanvasPointermove);
     this.canvas.removeEventListener("pointerup", this.#boundCanvasPointerup);
     this.canvas.addEventListener("pointerdown", this.#boundCanvasPointerdown, {
       signal: this._uiManager._signal,
@@ -185,7 +179,10 @@ class SquareEditor extends AnnotationEditor {
   }
 
   isEmpty() {
-    return this.rectangles.length === 0;
+    return (
+      this.rectangles.length === 0 ||
+      (this.rectangles.length === 1 && this.rectangles[0].length === 0)
+    );
   }
 
   setDimensions(width, height) {
@@ -231,23 +228,19 @@ class SquareEditor extends AnnotationEditor {
       this.#updateTransform();
       return;
     }
-    // begin #setStroke()
-    const { ctx, color, opacity, thickness } = this;
-    const fixedLineWidth = thickness; // Set your desired fixed line width
-    ctx.lineWidth = fixedLineWidth / Math.max(this.scaleFactorX, this.scaleFactorY);
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    ctx.miterLimit = 10;
-    ctx.strokeStyle = `${color}${opacityToHex(opacity)}`;
-    // end
+    this.ctx.lineWidth = this.fixedLineWidth / Math.max(this.scaleFactorX, this.scaleFactorY);
+    this.ctx.lineCap = "round";
+    this.ctx.lineJoin = "round";
+    this.ctx.miterLimit = 10;
+    this.ctx.strokeStyle = `${this.color}${opacityToHex(this.opacity)}`;
     const { canvas } = this;
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+    this.ctx.clearRect(0, 0, canvas.width, canvas.height);
     this.#updateTransform(); // update transform based on new scaleFactor
 
     // width and height of original shape's dims
     for (const rect of this.rectangles) {
-      ctx.strokeRect(rect.startX, rect.startY, rect.width, rect.height);
+      this.ctx.strokeRect(rect.startX, rect.startY, rect.width, rect.height);
     }
   }
 
@@ -489,14 +482,6 @@ class SquareEditor extends AnnotationEditor {
     const rectHeight = Math.abs(height);
 
     this.#currentPath2D.rect(rectX, rectY, rectWidth, rectHeight);
-
-    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-
-    for (const rectangle of this.rectangles) {
-      this.ctx.strokeRect(rectangle.firstX, rectangle.firstY, rectangle.width, rectangle.height);
-    }
-    this.ctx.stroke(this.#currentPath2D);
-    this.currentPath[1] = [x, y];
 
   }
 
