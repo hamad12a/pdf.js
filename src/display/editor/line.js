@@ -301,10 +301,7 @@ class LineEditor extends AnnotationEditor {
       return;
     }
 
-    // We want to draw on top of any other editors.
-    // Since it's the last child, there's no need to give it a higher z-index.
     this.setInForeground();
-
     event.preventDefault();
 
     if (!this.div.contains(document.activeElement)) {
@@ -479,14 +476,14 @@ class LineEditor extends AnnotationEditor {
     if (this.currentPath.length === 0) {
       return;
     }
-    const lastPoint = this.currentPath.at(-1);
-    this.#currentPath2D.lineTo(...lastPoint);
+    // const lastPoint = this.currentPath.at(-1);
+    // this.#currentPath2D.lineTo(...this.currentPath.at(-1));
     // end of #endPath
 
-    let bezier;
-    const path = this.currentPath;
 
-    bezier = [[path[0], path[0], path.at(-1), path.at(-1)]];
+    // const path = this.currentPath;
+
+    let bezier = [[this.currentPath[0], this.currentPath[0], this.currentPath.at(-1), this.currentPath.at(-1)]];
     const path2D = this.#currentPath2D;
     const currentPath = this.currentPath;
     this.currentPath = [];
@@ -518,47 +515,16 @@ class LineEditor extends AnnotationEditor {
   }
 
   #draw(x, y) {
+    const [firstX, firstY] = this.currentPath.at(0);
     const [lastX, lastY] = this.currentPath.at(-1);
     if (this.currentPath.length > 1 && x === lastX && y === lastY) {
       return;
     }
-    const currentPath = this.currentPath;
-    let path2D = this.#currentPath2D;
-    currentPath.push([x, y]);
+    this.currentPath.push([x, y]);
     this.#hasSomethingToDraw = true;
-
-    if (currentPath.length <= 2) {
-      path2D.moveTo(...currentPath[0]);
-      path2D.lineTo(x, y);
-      return;
-    }
-
-    if (currentPath.length === 3) {
-      this.#currentPath2D = path2D = new Path2D();
-      path2D.moveTo(...currentPath[0]);
-    }
-
-    //begin this.#makeBezierCurve(path2D,...currentPath.at(-3),...currentPath.at(-2),x,y);
-    // const [x0, y0] =  currentPath.at(-3);
-    // const [x1, y1] =  currentPath.at(-2);
-    // const [x2, y2] =  [x, y];
-    // const prevX = (x0 + x1) / 2;
-    // const prevY = (y0 + y1) / 2;
-    // const x3 = (x1 + x2) / 2;
-    // const y3 = (y1 + y2) / 2;
-
-    // path2D.bezierCurveTo(
-    //   prevX + (2 * (x1 - prevX)) / 3,
-    //   prevY + (2 * (y1 - prevY)) / 3,
-    //   x3 + (2 * (x1 - x3)) / 3,
-    //   y3 + (2 * (y1 - y3)) / 3,
-    //   x3,
-    //   y3
-    // );
-    // path2D.move(x, y)
-    // path2D.moveTo(x, y);
-    path2D.lineTo(x, y);
-    // end of this.#makeBezierCurve
+    this.#currentPath2D.moveTo(firstX, firstY);
+    this.#currentPath2D.lineTo(x, y);
+    
   }
 
   focusin(event) {
