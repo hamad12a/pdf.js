@@ -16,7 +16,7 @@ class SquareEditor extends AnnotationEditor {
   #boundCanvasPointerup = this.canvasPointerup.bind(this);
   #boundCanvasPointerdown = this.canvasPointerdown.bind(this);
   #canvasContextMenuTimeoutId = null;
-  #currentPath2D = null;
+  #currentPath2D = new Path2D();
   #disableEditing = false;
   #hasSomethingToDraw = false;
   #isCanvasInitialized = false;
@@ -419,57 +419,85 @@ class SquareEditor extends AnnotationEditor {
     y = Math.min(Math.max(y, 0), this.canvas.height);
 
     this.#draw(x, y);
-
-    const currentPath = this.currentPath;
-    if (currentPath.length > 0) {
-      const [startX, startY] = currentPath[0];
-      const width = x - startX;
-      const height = y - startY;
-      const rectX = Math.min(startX, x);
-      const rectY = Math.min(startY, y);
-      const rectWidth = Math.abs(width);
-      const rectHeight = Math.abs(height);
-
-      this.rectangles.push({
-        startX: rectX,
-        startY: rectY,
-        width: rectWidth,
-        height: rectHeight,
-      });
+    if (this.currentPath.length === 0) {
+      return;
     }
 
+
+    const [startX, startY] = this.currentPath[0];
+    const width = x - startX;
+    const height = y - startY;
+    const rectX = Math.min(startX, x);
+    const rectY = Math.min(startY, y);
+    const rectWidth = Math.abs(width);
+    const rectHeight = Math.abs(height);
+
+    let rectangle = [[rectX, rectY], [rectX + rectWidth, rectY], [rectX + rectWidth, rectY + rectHeight], [rectX, rectY + rectHeight]];
+    const path2D = this.#currentPath2D;
+    const currentPath = this.currentPath;
     this.currentPath = [];
-  }
+    this.#currentPath2D = new Path2D();
+    
+    this.rectangles.push({ startX: rectX, startY: rectY, width: rectWidth, height: rectHeight });
+    
+    const cmd = () => {
+      this.allRawPaths.push(currentPath);
+      this.paths.push(rectangle);
+      this.bezierPath2D.push(path2D);
+      this._uiManager.rebuild(this);
+    };
 
-  #draw(x, y) {
-    const currentPath = this.currentPath;
-
-    if (currentPath.length > 0) {
-      const [startX, startY] = currentPath[0];
-      const width = x - startX;
-      const height = y - startY;
-
-      this.#currentPath2D = new Path2D();
-      const path2D = this.#currentPath2D;
-
-      const rectX = Math.min(startX, x);
-      const rectY = Math.min(startY, y);
-      const rectWidth = Math.abs(width);
-      const rectHeight = Math.abs(height);
-
-      path2D.rect(rectX, rectY, rectWidth, rectHeight);
-
-      this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-
-      for (const rect of this.rectangles) {
-        this.ctx.strokeRect(rect.startX, rect.startY, rect.width, rect.height);
+    const undo = () => {
+      this.allRawPaths.pop();
+      this.paths.pop();
+      this.bezierPath2D.pop();
+      if (this.paths.length === 0) {
+        this.remove();
+      } else {
+        if (!this.canvas) {
+          this.#createCanvas();
+          this.#createObserver();
+        }
+        this.#fitToContent();
       }
-      this.ctx.stroke(path2D);
-      currentPath[1] = [x, y];
-    } else {
-      currentPath.push([x, y]);
-      this.#hasSomethingToDraw = false;
+    };
+
+    this.addCommands({ cmd, undo, mustExec: true });
+
+  }
+  
+  #draw(x, y) {
+    const [firstX, firstY] = this.currentPath.at(0);
+    const [lastX, lastY] = this.currentPath.at(-1);
+    if (this.currentPath.length > 1 && x === lastX && y === lastY) {
+      return;
     }
+    if (this.currentPath.length === 1) {
+      this.currentPath.push([x, y]);
+    } else {
+      this.currentPath[1] = [x, y];
+    }
+    // this.#currentPath2D is responsible for saving the actual drawings before realeasing the pointer
+    this.#currentPath2D = new Path2D();
+    this.#hasSomethingToDraw = true;
+
+    const width = x - firstX;
+    const height = y - firstY;
+    const rectX = Math.min(firstX, x);
+    const rectY = Math.min(firstY, y);
+    const rectWidth = Math.abs(width);
+    const rectHeight = Math.abs(height);
+
+    this.#currentPath2D.rect(rectX, rectY, rectWidth, rectHeight);
+
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+    for (const rectangle of this.rectangles) {
+      this.ctx.strokeRect(rectangle.firstX, rectangle.firstY, rectangle.width, rectangle.height);
+    }
+    this.ctx.stroke(this.#currentPath2D);
+    this.currentPath[1] = [x, y];
+
   }
 
   focusin(event) {
