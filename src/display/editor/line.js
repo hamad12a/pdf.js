@@ -225,9 +225,6 @@ class LineEditor extends AnnotationEditor {
     this.#redraw();
 
     this.canvas.style.visibility = "visible";
-
-    // For any reason the dimensions couldn't be in percent but in pixels, hence
-    // we must fix them.
     this.fixDims();
   }
 
@@ -672,31 +669,30 @@ class LineEditor extends AnnotationEditor {
           points[i] += blX;
           points[i + 1] = trY - points[i + 1];
         }
-        break;
+        return points;
       case 90:
         for (let i = 0, ii = points.length; i < ii; i += 2) {
           const x = points[i];
           points[i] = points[i + 1] + blX;
           points[i + 1] = x + blY;
         }
-        break;
+        return points;
       case 180:
         for (let i = 0, ii = points.length; i < ii; i += 2) {
           points[i] = trX - points[i];
           points[i + 1] += blY;
         }
-        break;
+        return points;
       case 270:
         for (let i = 0, ii = points.length; i < ii; i += 2) {
           const x = points[i];
           points[i] = trX - points[i + 1];
           points[i + 1] = trY - x;
         }
-        break;
+        return points;
       default:
         throw new Error("Invalid rotation");
-    }
-    return points;
+    };
   }
 
   static deserialize(data, parent, uiManager) {

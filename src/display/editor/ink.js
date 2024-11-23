@@ -1,3 +1,18 @@
+/* Copyright 2022 Mozilla Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import {
   AnnotationEditorParamsType,
   AnnotationEditorType,
@@ -8,6 +23,9 @@ import { InkAnnotationElement } from "../annotation_layer.js";
 import { noContextMenu } from "../display_utils.js";
 import { opacityToHex } from "./tools.js";
 
+/**
+ * Basic draw editor in order to generate an Ink annotation.
+ */
 class InkEditor extends AnnotationEditor {
   #baseHeight = 0;
 
@@ -490,7 +508,7 @@ class InkEditor extends AnnotationEditor {
       return;
     }
     this.#hasSomethingToDraw = false;
-    
+
     const thickness = Math.ceil(this.thickness * this.parentScale);
     const lastPoints = this.currentPath.slice(-3);
     const x = lastPoints.map(xy => xy[0]);
@@ -514,9 +532,9 @@ class InkEditor extends AnnotationEditor {
     }
 
     for (const path of this.bezierPath2D) {
-      ctx.stroke(path); // this draws only what we see!
+      ctx.stroke(path);
     }
-    ctx.stroke(this.#currentPath2D); // this draws only what we don't see!
+    ctx.stroke(this.#currentPath2D);
 
     ctx.restore();
   }
@@ -690,8 +708,14 @@ class InkEditor extends AnnotationEditor {
    * @param {PointerEvent} event
    */
   #endDrawing(event) {
-    this.canvas.removeEventListener("pointerleave", this.#boundCanvasPointerleave);
-    this.canvas.removeEventListener("pointermove", this.#boundCanvasPointermove);
+    this.canvas.removeEventListener(
+      "pointerleave",
+      this.#boundCanvasPointerleave
+    );
+    this.canvas.removeEventListener(
+      "pointermove",
+      this.#boundCanvasPointermove
+    );
     this.canvas.removeEventListener("pointerup", this.#boundCanvasPointerup);
     this.canvas.addEventListener("pointerdown", this.#boundCanvasPointerdown, {
       signal: this._uiManager._signal,
@@ -707,7 +731,7 @@ class InkEditor extends AnnotationEditor {
       this.canvas.removeEventListener("contextmenu", noContextMenu);
     }, 10);
 
-    this.#stopDrawing(event.offsetX, event.offsetY); // disabling this will disable stopdrawing and doesn't save the drawing!
+    this.#stopDrawing(event.offsetX, event.offsetY);
 
     this.addToAnnotationStorage();
 
@@ -985,9 +1009,17 @@ class InkEditor extends AnnotationEditor {
     const shiftY = s * ty + padding;
     for (const bezier of this.paths) {
       const buffer = [];
+      const points = [];
       for (let j = 0, jj = bezier.length; j < jj; j++) {
         const [first, control1, control2, second] = bezier[j];
-
+        if (first[0] === second[0] && first[1] === second[1] && jj === 1) {
+          // We have only one point.
+          const p0 = s * first[0] + shiftX;
+          const p1 = s * first[1] + shiftY;
+          buffer.push(p0, p1);
+          points.push(p0, p1);
+          break;
+        }
         const p10 = s * first[0] + shiftX;
         const p11 = s * first[1] + shiftY;
         const p20 = s * control1[0] + shiftX;
@@ -999,47 +1031,23 @@ class InkEditor extends AnnotationEditor {
 
         if (j === 0) {
           buffer.push(p10, p11);
+          points.push(p10, p11);
         }
         buffer.push(p20, p21, p30, p31, p40, p41);
-
+        points.push(p20, p21);
+        if (j === jj - 1) {
+          points.push(p40, p41);
+        }
       }
-      const [blX, blY, trX, trY] = rect;
-      for (let i = 0, ii = buffer.length; i < ii; i += 2) {
-          buffer[i] += blX;
-          buffer[i + 1] = trY - buffer[i + 1];
-      }
-      paths.push({bezier: buffer});
+      paths.push({
+        bezier: InkEditor.#toPDFCoordinates(buffer, rect, this.rotation),
+        points: InkEditor.#toPDFCoordinates(points, rect, this.rotation),
+      });
     }
+
     return paths;
   }
 
-  /** @inheritdoc */
-  serialize() {
-    if (this.isEmpty()) {
-      return null;
-    }
-
-    const rect = this.getRect(0, 0);
-    const color = AnnotationEditor._colorManager.convert(this.ctx.strokeStyle);
-
-    return {
-      annotationType: AnnotationEditorType.INK,
-      color,
-      thickness: this.thickness,
-      opacity: this.opacity,
-      paths: this.#serializePaths(
-        this.scaleFactor / this.parentScale,
-        this.translationX,
-        this.translationY,
-        rect
-      ),
-      pageIndex: this.pageIndex,
-      rect,
-      rotation: this.rotation,
-      structTreeParentId: this._structTreeParentId,
-    };
-  }
-  
   /**
    * Get the bounding box containing all the paths.
    * @returns {Array<number>}
@@ -1186,7 +1194,32 @@ class InkEditor extends AnnotationEditor {
     return editor;
   }
 
+  /** @inheritdoc */
+  serialize() {
+    if (this.isEmpty()) {
+      return null;
+    }
 
+    const rect = this.getRect(0, 0);
+    const color = AnnotationEditor._colorManager.convert(this.ctx.strokeStyle);
+
+    return {
+      annotationType: AnnotationEditorType.INK,
+      color,
+      thickness: this.thickness,
+      opacity: this.opacity,
+      paths: this.#serializePaths(
+        this.scaleFactor / this.parentScale,
+        this.translationX,
+        this.translationY,
+        rect
+      ),
+      pageIndex: this.pageIndex,
+      rect,
+      rotation: this.rotation,
+      structTreeParentId: this._structTreeParentId,
+    };
+  }
 }
 
 export { InkEditor };

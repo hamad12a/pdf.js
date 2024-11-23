@@ -180,8 +180,8 @@ class SquareEditor extends AnnotationEditor {
 
   isEmpty() {
     return (
-      this.rectangles.length === 0 ||
-      (this.rectangles.length === 1 && this.rectangles[0].length === 0)
+      this.paths.length === 0 ||
+      (this.paths.length === 1 && this.paths[0].length === 0)
     );
   }
 
@@ -233,15 +233,18 @@ class SquareEditor extends AnnotationEditor {
     this.ctx.lineJoin = "round";
     this.ctx.miterLimit = 10;
     this.ctx.strokeStyle = `${this.color}${opacityToHex(this.opacity)}`;
-    const { canvas } = this;
+    const { canvas, ctx } = this;
     this.ctx.setTransform(1, 0, 0, 1, 0, 0);
     this.ctx.clearRect(0, 0, canvas.width, canvas.height);
     this.#updateTransform(); // update transform based on new scaleFactor
 
-    // width and height of original shape's dims
-    for (const rect of this.rectangles) {
-      this.ctx.strokeRect(rect.startX, rect.startY, rect.width, rect.height);
+    for (const path of this.bezierPath2D) {
+      ctx.stroke(path);
     }
+    // width and height of original shape's dims
+    // for (const rect of this.rectangles) {
+    //   this.ctx.strokeRect(rect.startX, rect.startY, rect.width, rect.height);
+    // }
   }
 
   #updateTransform() {
@@ -425,17 +428,15 @@ class SquareEditor extends AnnotationEditor {
     const rectWidth = Math.abs(width);
     const rectHeight = Math.abs(height);
 
-    let rectangle = [[rectX, rectY], [rectX + rectWidth, rectY], [rectX + rectWidth, rectY + rectHeight], [rectX, rectY + rectHeight]];
+    let bezier = [[[rectX, rectY], [rectX + rectWidth, rectY], [rectX + rectWidth, rectY + rectHeight], [rectX, rectY + rectHeight]]];
     const path2D = this.#currentPath2D;
     const currentPath = this.currentPath;
     this.currentPath = [];
     this.#currentPath2D = new Path2D();
-    
-    this.rectangles.push({ startX: rectX, startY: rectY, width: rectWidth, height: rectHeight });
-    
+        
     const cmd = () => {
       this.allRawPaths.push(currentPath);
-      this.paths.push(rectangle);
+      this.paths.push(bezier);
       this.bezierPath2D.push(path2D);
       this._uiManager.rebuild(this);
     };
@@ -480,7 +481,7 @@ class SquareEditor extends AnnotationEditor {
     const rectY = Math.min(firstY, y);
     const rectWidth = Math.abs(width);
     const rectHeight = Math.abs(height);
-
+    this.#currentPath2D.moveTo(firstX, firstY);
     this.#currentPath2D.rect(rectX, rectY, rectWidth, rectHeight);
 
   }
@@ -582,12 +583,19 @@ class SquareEditor extends AnnotationEditor {
     let yMin = Infinity;
     let yMax = -Infinity;
 
-    for (const rect of this.rectangles) {
-      const { startX, startY, width, height } = rect;
-      xMin = Math.min(xMin, startX);
-      yMin = Math.min(yMin, startY);
-      xMax = Math.max(xMax, startX + width);
-      yMax = Math.max(yMax, startY + height);
+    for (const path of this.paths) {
+      for (const [first, control1, control2, second] of path) {
+        const bbox = Util.bezierBoundingBox(
+          ...first,
+          ...control1,
+          ...control2,
+          ...second
+        );
+        xMin = Math.min(xMin, bbox[0]);
+        yMin = Math.min(yMin, bbox[1]);
+        xMax = Math.max(xMax, bbox[2]);
+        yMax = Math.max(yMax, bbox[3]);
+      }
     }
 
     return [xMin, yMin, xMax, yMax];
@@ -606,12 +614,7 @@ class SquareEditor extends AnnotationEditor {
       color,
       thickness: this.thickness,
       opacity: this.opacity,
-      paths: this.#serializePaths(
-        this.scaleFactor / this.parentScale,
-        this.translationX,
-        this.translationY,
-        rect
-      ),
+      paths: this.#serializePaths(this.scaleFactor / this.parentScale,this.translationX,this.translationY,rect),
       pageIndex: this.pageIndex,
       rect,
       rotation: this.rotation,
@@ -620,38 +623,72 @@ class SquareEditor extends AnnotationEditor {
   }
 
   #serializePaths(s, tx, ty, rect) {
-    const rectangles = [];
-    const shiftX = tx;
-    const shiftY = ty;
-    for (const rectangle of this.rectangles) {
-      const { startX, startY, width, height } = rectangle;
-      const points = [
-        [startX + shiftX, startY + shiftY],
-        [startX + width + shiftX, startY + shiftY],
-        [startX + width + shiftX, startY + height + shiftY],
-        [startX + shiftX, startY + height + shiftY],
-      ];
-      const pdfPoints = SquareEditor.#toPDFCoordinates(points, rect, this.rotation);
-      rectangles.push({ rectangle: pdfPoints });
+    const paths = [];
+    const padding = this.thickness / 2;
+    const shiftX = s * tx + padding;
+    const shiftY = s * ty + padding;
+    for (const bezier of this.paths) {
+      const buffer = [];
+      for (let j = 0, jj = bezier.length; j < jj; j++) {
+        const [first, control1, control2, second] = bezier[j];
+
+        const p10 = s * first[0] + shiftX;
+        const p11 = s * first[1] + shiftY;
+        const p20 = s * control1[0] + shiftX;
+        const p21 = s * control1[1] + shiftY;
+        const p30 = s * control2[0] + shiftX;
+        const p31 = s * control2[1] + shiftY;
+        const p40 = s * second[0] + shiftX;
+        const p41 = s * second[1] + shiftY;
+
+        if (j === 0) {
+          buffer.push(p10, p11);
+        }
+        buffer.push(p20, p21, p30, p31, p40, p41);
+      }
+      paths.push({
+        bezier: SquareEditor.#toPDFCoordinates(buffer, rect, this.rotation),
+      });
     }
-    return rectangles;
+    return paths;
   }
 
   static #toPDFCoordinates(points, rect, rotation) {
-    const [blX, blY] = rect;
-    const pdfPoints = points.map(([x, y]) => {
-      switch (rotation) {
-        case 90:
-          return [blY + y, trX - x];
-        case 180:
-          return [trX - x, trY - y];
-        case 270:
-          return [trY - y, blX + x];
-        default:
-          return [blX + x, blY + y];
-      }
-    });
-    return pdfPoints;
+    const [blX, blY, trX, trY] = rect;
+    
+    switch (rotation) {
+      case 0:
+        for (let i = 0, ii = points.length; i < ii; i += 2) {
+          points[i] += blX;
+          points[i + 1] = trY - points[i + 1];
+        }
+        break;
+      case 90:
+        for (let i = 0, ii = points.length; i < ii; i += 2) {
+          const x = points[i];
+          const y = points[i + 1];
+          points[i] = trX - y;
+          points[i + 1] = x + blY;
+        }
+        break;
+      case 180:
+        for (let i = 0, ii = points.length; i < ii; i += 2) {
+          points[i] = trX - points[i];
+          points[i + 1] = trY - points[i + 1];
+        }
+        break;
+      case 270:
+        for (let i = 0, ii = points.length; i < ii; i += 2) {
+          const x = points[i];
+          const y = points[i + 1];
+          points[i] = y + blX;
+          points[i + 1] = trY - x;
+        }
+        break;
+      default:
+        throw new Error("Invalid rotation");
+    }
+    return points;
   }
 
   static deserialize(data, parent, uiManager) {
@@ -676,39 +713,94 @@ class SquareEditor extends AnnotationEditor {
 
     const { paths, rect, rotation } = data;
 
-    for (const { rectangle } of paths) {
-      const editorPoints = SquareEditor.#fromPDFCoordinates(
-        rectangle,
-        rect,
-        rotation
-      );
-      const [startX, startY] = editorPoints[0];
-      editor.rectangles.push({ startX, startY, width, height });
+    for (let { bezier } of paths) {
+      bezier = SquareEditor.#fromPDFCoordinates(bezier, rect, rotation);
+      const path = [];
+      editor.paths.push(path);
+      let p0 = scaleFactor * (bezier[0] - padding);
+      let p1 = scaleFactor * (bezier[1] - padding);
+      for (let i = 2, ii = bezier.length; i < ii; i += 6) {
+        const p10 = scaleFactor * (bezier[i] - padding);
+        const p11 = scaleFactor * (bezier[i + 1] - padding);
+        const p20 = scaleFactor * (bezier[i + 2] - padding);
+        const p21 = scaleFactor * (bezier[i + 3] - padding);
+        const p30 = scaleFactor * (bezier[i + 4] - padding);
+        const p31 = scaleFactor * (bezier[i + 5] - padding);
+        path.push([
+          [p0, p1],
+          [p10, p11],
+          [p20, p21],
+          [p30, p31],
+        ]);
+        p0 = p30;
+        p1 = p31;
+      }
+      //begin const path2D = this.#buildPath2D(path);
+      const path2D = new Path2D();
+      for (let i = 0, ii = path.length; i < ii; i++) {
+        const [first, control1, control2, second] = path[i];
+        if (i === 0) {
+          path2D.moveTo(...first);
+        }
+        path2D.lineTo(...control1);
+        path2D.lineTo(...control2);
+        path2D.lineTo(...second);
+        path2D.closePath();
+      }
+      // end of const path2D =
+
+      editor.bezierPath2D.push(path2D);
     }
 
     const bbox = editor.#getBbox();
     editor.#baseWidth = Math.max(AnnotationEditor.MIN_SIZE, bbox[2] - bbox[0]);
     editor.#baseHeight = Math.max(AnnotationEditor.MIN_SIZE, bbox[3] - bbox[1]);
-    // editor.#setScaleFactor(width, height);
+    editor.#setScaleFactor(width, height);
 
     return editor;
   }
 
   static #fromPDFCoordinates(points, rect, rotation) {
     const [blX, blY, trX, trY] = rect;
-    const editorPoints = points.map(([x, y]) => {
-      switch (rotation) {
-        case 90:
-          return [trX - y, x - blY];
-        case 180:
-          return [trX - x, trY - y];
-        case 270:
-          return [y - blX, trY - x];
-        default:
-          return [x - blX, y - blY];
-      }
-    });
-    return editorPoints;
+
+    switch (rotation) {
+      case 0:
+        for (let i = 0, ii = points.length; i < ii; i += 2) {
+          points[i] -= blX;
+          points[i + 1] = trY - points[i + 1];
+        }
+        break;
+      case 90:
+        for (let i = 0, ii = points.length; i < ii; i += 2) {
+          const x = points[i];
+          points[i] = points[i + 1] - blY;
+          points[i + 1] = x - blX;
+        }
+        break;
+      case 180:
+        for (let i = 0, ii = points.length; i < ii; i += 2) {
+          points[i] = trX - points[i];
+          points[i + 1] -= blY;
+        }
+        break;
+      case 270:
+        for (let i = 0, ii = points.length; i < ii; i += 2) {
+          const x = points[i];
+          points[i] = trY - points[i + 1];
+          points[i + 1] = trX - x;
+        }
+        break;
+      default:
+        throw new Error("Invalid rotation");
+    }
+    return points;
+  }
+
+  #setScaleFactor(width, height) {
+    const padding = this.#getPadding();
+    const scaleFactorW = (width - padding) / this.#baseWidth;
+    const scaleFactorH = (height - padding) / this.#baseHeight;
+    this.scaleFactor = Math.min(scaleFactorW, scaleFactorH);
   }
 
   static updateDefaultParams(type, value) {
