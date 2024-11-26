@@ -72,6 +72,14 @@ import { GlobalWorkerOptions } from "./display/worker_options.js";
 import { Outliner } from "./display/editor/outliner.js";
 import { TextLayer } from "./display/text_layer.js";
 import { XfaLayer } from "./display/xfa_layer.js";
+import { Annotation,
+  AnnotationBorderStyle,
+  AnnotationFactory,
+  getQuadPoints,
+  MarkupAnnotation,
+  PopupAnnotation,
+  WidgetAnnotation 
+} from "./core/annotation.js";
 
 /* eslint-disable-next-line no-unused-vars */
 const pdfjsVersion =
@@ -130,4 +138,11 @@ export {
   VerbosityLevel,
   version,
   XfaLayer,
+  Annotation,
+  AnnotationBorderStyle,
+  AnnotationFactory,
+  getQuadPoints,
+  MarkupAnnotation,
+  PopupAnnotation,
+  WidgetAnnotation,
 };
