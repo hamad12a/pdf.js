@@ -6,3 +6,24 @@ the methods named: `#serializePaths, static deserialize,  serialize()` are used 
 is responsible for line width in redraw
 
 we need to fix the parentscale the same way we did with scalefactor
+
+
+
+- I need to find this.scratchCanvas source which is stores the bad rectangle
+
+
+- wrong shape:
+ 1- rectangle defined wrong
+ 2- topdfcoordinates wrong
+ 3- what's drawing the rectangle before printing
+
+-> I couldn't find the rendering point where exactly the pdf is rendered to a canva but just found
+scratchCanvas in useRenderedPage is the one which produces the wrong rectangle (arc).
+-> I found render() function is responsible with renderContext; pop... function. It's like rendering is not something we could inspect or modify.
+-> save also reported new issue; "this.createNewAppearanceStream is not a function". its source is in,
+annotations.js. I couldn't find it using the debugger but manually guessing to search this function and found it in annotation.js and commenting out relevant portions revealed the reported error.
+- we need to understand annotation.js
+
+-> some source files are not loaded in chrome sources tab for some reason such as annotations.js
+
+and maybe the source problem for not saving/printing properly is due to missing parts in annotation.js

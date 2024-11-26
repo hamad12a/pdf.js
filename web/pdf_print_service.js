@@ -53,6 +53,11 @@ function renderPage(
   ctx.fillRect(0, 0, scratchCanvas.width, scratchCanvas.height);
   ctx.restore();
 
+  // const img = document.createElement("img");
+  // scratchCanvas.toBlob(function (blob) {
+  //       img.src = URL.createObjectURL(blob);
+  // });
+
   return Promise.all([
     pdfDocument.getPage(pageNumber),
     printAnnotationStoragePromise,

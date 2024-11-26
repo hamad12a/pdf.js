@@ -2846,7 +2846,13 @@ class WorkerTransport {
       switch (type) {
         case "Image":
           pageProxy.objs.resolve(id, imageData);
-
+          // const img = new Image();
+          // img.src = URL.createObjectURL(new Blob([imageData.data]));
+          // img.onload = () => {
+          //   pageProxy.objs.resolve(id, img);
+          //   URL.revokeObjectURL(img.src);
+          // };
+            
           // Heuristic that will allow us not to store large data.
           if (imageData?.dataLen > MAX_IMAGE_SIZE_TO_CACHE) {
             pageProxy._maybeCleanupAfterRender = true;
@@ -3445,6 +3451,10 @@ class InternalRenderTask {
       this.running = false;
       if (this.operatorList.lastChunk) {
         this.gfx.endDrawing();
+        // const img = document.createElement("img");
+        // this._canvas.toBlob(function (blob) {
+        //   img.src = URL.createObjectURL(blob);
+        // });
         InternalRenderTask.#canvasInUse.delete(this._canvas);
 
         this.callback();

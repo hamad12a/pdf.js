@@ -66,13 +66,13 @@ class SquareEditor extends AnnotationEditor {
     this.thickness = params.thickness || null;
     this.opacity = params.opacity || null;
     this.paths = [];
+    // this.rectangles = [];
     this.bezierPath2D = [];
     this.allRawPaths = [];
     this.currentPath = [];
     this.translationX = this.translationY = 0;
     this.x = 0;
     this.y = 0;
-    this.rectangles = [];
     this.scaleFactor = 1;
   }
 
@@ -593,7 +593,7 @@ class SquareEditor extends AnnotationEditor {
         );
         xMin = Math.min(xMin, bbox[0]);
         yMin = Math.min(yMin, bbox[1]);
-        xMax = Math.max(xMax, bbox[2]);
+        xMax = Math.max(xMax, bbox[2]+20);
         yMax = Math.max(yMax, bbox[3]);
       }
     }
@@ -650,6 +650,9 @@ class SquareEditor extends AnnotationEditor {
         bezier: SquareEditor.#toPDFCoordinates(buffer, rect, this.rotation),
       });
     }
+    // if (paths.length > 0) {
+      // paths[0].bezier = [98, 652, 98, 652, 293, 51, 293, 514];
+    // }
     return paths;
   }
 
