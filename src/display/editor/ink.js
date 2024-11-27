@@ -1009,7 +1009,6 @@ class InkEditor extends AnnotationEditor {
     const shiftY = s * ty + padding;
     for (const bezier of this.paths) {
       const buffer = [];
-      const points = [];
       for (let j = 0, jj = bezier.length; j < jj; j++) {
         const [first, control1, control2, second] = bezier[j];
         if (first[0] === second[0] && first[1] === second[1] && jj === 1) {
@@ -1017,7 +1016,6 @@ class InkEditor extends AnnotationEditor {
           const p0 = s * first[0] + shiftX;
           const p1 = s * first[1] + shiftY;
           buffer.push(p0, p1);
-          points.push(p0, p1);
           break;
         }
         const p10 = s * first[0] + shiftX;
@@ -1031,17 +1029,11 @@ class InkEditor extends AnnotationEditor {
 
         if (j === 0) {
           buffer.push(p10, p11);
-          points.push(p10, p11);
         }
         buffer.push(p20, p21, p30, p31, p40, p41);
-        points.push(p20, p21);
-        if (j === jj - 1) {
-          points.push(p40, p41);
-        }
       }
       paths.push({
         bezier: InkEditor.#toPDFCoordinates(buffer, rect, this.rotation),
-        points: InkEditor.#toPDFCoordinates(points, rect, this.rotation),
       });
     }
 

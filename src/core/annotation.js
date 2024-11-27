@@ -498,7 +498,7 @@ class AnnotationFactory {
           break;
         case AnnotationEditorType.LINE:
           promises.push(
-            InkAnnotation.createNewPrintAnnotation(
+            LineAnnotation.createNewPrintAnnotation(
               annotationGlobals,
               xref,
               annotation,
@@ -510,7 +510,7 @@ class AnnotationFactory {
           break;
         case AnnotationEditorType.SQUARE:
           promises.push(
-            InkAnnotation.createNewPrintAnnotation(
+            SquareAnnotation.createNewPrintAnnotation(
               annotationGlobals,
               xref,
               annotation,
@@ -4107,55 +4107,102 @@ class LineAnnotation extends MarkupAnnotation {
       });
     }
   }
-}
 
-class SquareAnnotation extends MarkupAnnotation {
-  constructor(params) {
-    super(params);
+  static createNewDict(annotation, xref, { apRef, ap }) {
+    const { color, opacity, paths, outlines, rect, rotation, thickness } =
+    annotation;
+  const line = new Dict(xref);
+  line.set("Type", Name.get("Annot"));
+  line.set("Subtype", Name.get("Line"));
+  line.set("CreationDate", `D:${getModificationDate()}`);
+  line.set("Rect", rect);
+  line.set("F", 4);
+  line.set("Rotate", rotation);
 
-    const { dict, xref } = params;
-    this.data.annotationType = AnnotationType.SQUARE;
-    this.data.hasOwnCanvas = this.data.noRotate;
-    this.data.noHTML = false;
+  const bs = new Dict(xref);
+  line.set("BS", bs);
+  bs.set("W", thickness);
 
-    if (!this.appearance) {
-      // The default stroke color is black.
-      const strokeColor = this.color ? getPdfColorArray(this.color) : [0, 0, 0];
-      const strokeAlpha = dict.get("CA");
+  line.set(
+    "C",
+    Array.from(color, c => c / 255)
+  );
 
-      const interiorColor = getRgbColor(dict.getArray("IC"), null);
-      // The default fill color is transparent.
-      const fillColor = interiorColor ? getPdfColorArray(interiorColor) : null;
-      const fillAlpha = fillColor ? strokeAlpha : null;
+  line.set("CA", opacity);
 
-      if (this.borderStyle.width === 0 && !fillColor) {
-        // Prevent rendering a "hairline" border (fixes issue14164.pdf).
-        return;
-      }
+  const n = new Dict(xref);
+  line.set("AP", n);
 
-      this._setDefaultAppearance({
-        xref,
-        extra: `${this.borderStyle.width} w`,
-        strokeColor,
-        fillColor,
-        strokeAlpha,
-        fillAlpha,
-        pointsCallback: (buffer, points) => {
-          const x = points[4] + this.borderStyle.width / 2;
-          const y = points[5] + this.borderStyle.width / 2;
-          const width = points[6] - points[4] - this.borderStyle.width;
-          const height = points[3] - points[7] - this.borderStyle.width;
-          buffer.push(`${x} ${y} ${width} ${height} re`);
-          if (fillColor) {
-            buffer.push("B");
-          } else {
-            buffer.push("S");
-          }
-          return [points[0], points[2], points[7], points[3]];
-        },
-      });
-    }
+  if (apRef) {
+    n.set("N", apRef);
+  } else {
+    n.set("N", ap);
   }
+
+  return line;
+  }
+
+  static async createNewAppearanceStream(annotation, xref, params) {
+    
+    const { color, rect, paths, thickness, opacity } = annotation;
+
+    const appearanceBuffer = [
+      `${thickness} w 1 J 1 j`,
+      `${getPdfColor(color, /* isFill */ false)}`,
+    ];
+
+    if (opacity !== 1) {
+      appearanceBuffer.push("/R0 gs");
+    }
+
+    const buffer = [];
+    for (const { bezier } of paths) {
+      buffer.length = 0;
+      buffer.push(
+        `${numberToString(bezier[0])} ${numberToString(bezier[1])} m`
+      );
+      if (bezier.length === 2) {
+        buffer.push(
+          `${numberToString(bezier[0])} ${numberToString(bezier[1])} l S`
+        );
+      } else {
+        for (let i = 2, ii = bezier.length; i < ii; i += 6) {
+          const curve = bezier
+            .slice(i, i + 6)
+            .map(numberToString)
+            .join(" ");
+          buffer.push(`${curve} c`);
+        }
+        buffer.push("S");
+      }
+      appearanceBuffer.push(buffer.join("\n"));
+    }
+    const appearance = appearanceBuffer.join("\n");
+
+    const appearanceStreamDict = new Dict(xref);
+    appearanceStreamDict.set("FormType", 1);
+    appearanceStreamDict.set("Subtype", Name.get("Form"));
+    appearanceStreamDict.set("Type", Name.get("XObject"));
+    appearanceStreamDict.set("BBox", rect);
+    appearanceStreamDict.set("Length", appearance.length);
+
+    if (opacity !== 1) {
+      const resources = new Dict(xref);
+      const extGState = new Dict(xref);
+      const r0 = new Dict(xref);
+      r0.set("CA", opacity);
+      r0.set("Type", Name.get("ExtGState"));
+      extGState.set("R0", r0);
+      resources.set("ExtGState", extGState);
+      appearanceStreamDict.set("Resources", resources);
+    }
+
+    const ap = new StringStream(appearance);
+    ap.dict = appearanceStreamDict;
+
+    return ap;
+  }
+
 }
 
 class CircleAnnotation extends MarkupAnnotation {
@@ -4305,6 +4352,149 @@ class CaretAnnotation extends MarkupAnnotation {
 
     this.data.annotationType = AnnotationType.CARET;
   }
+}
+
+class SquareAnnotation extends MarkupAnnotation {
+  constructor(params) {
+    super(params);
+
+    const { dict, xref } = params;
+    this.data.annotationType = AnnotationType.SQUARE;
+    this.data.hasOwnCanvas = this.data.noRotate;
+    this.data.noHTML = false;
+
+    if (!this.appearance) {
+      // The default stroke color is black.
+      const strokeColor = this.color ? getPdfColorArray(this.color) : [0, 0, 0];
+      const strokeAlpha = dict.get("CA");
+
+      const interiorColor = getRgbColor(dict.getArray("IC"), null);
+      // The default fill color is transparent.
+      const fillColor = interiorColor ? getPdfColorArray(interiorColor) : null;
+      const fillAlpha = fillColor ? strokeAlpha : null;
+
+      if (this.borderStyle.width === 0 && !fillColor) {
+        // Prevent rendering a "hairline" border (fixes issue14164.pdf).
+        return;
+      }
+
+      this._setDefaultAppearance({
+        xref,
+        extra: `${this.borderStyle.width} w`,
+        strokeColor,
+        fillColor,
+        strokeAlpha,
+        fillAlpha,
+        pointsCallback: (buffer, points) => {
+          const x = points[4] + this.borderStyle.width / 2;
+          const y = points[5] + this.borderStyle.width / 2;
+          const width = points[6] - points[4] - this.borderStyle.width;
+          const height = points[3] - points[7] - this.borderStyle.width;
+          buffer.push(`${x} ${y} ${width} ${height} re`);
+          if (fillColor) {
+            buffer.push("B");
+          } else {
+            buffer.push("S");
+          }
+          return [points[0], points[2], points[7], points[3]];
+        },
+      });
+    }
+  }
+
+  static createNewDict(annotation, xref, { apRef, ap }) {
+    const { color, opacity, paths, outlines, rect, rotation, thickness } =
+    annotation;
+  const square = new Dict(xref);
+  square.set("Type", Name.get("Annot"));
+  square.set("Subtype", Name.get("Square"));
+  square.set("CreationDate", `D:${getModificationDate()}`);
+  square.set("Rect", rect);
+  square.set("F", 4);
+  square.set("Rotate", rotation);
+
+  const bs = new Dict(xref);
+  square.set("BS", bs);
+  bs.set("W", thickness);
+
+  square.set(
+    "C",
+    Array.from(color, c => c / 255)
+  );
+
+  square.set("CA", opacity);
+
+  const n = new Dict(xref);
+  square.set("AP", n);
+
+  if (apRef) {
+    n.set("N", apRef);
+  } else {
+    n.set("N", ap);
+  }
+
+  return square;
+  }
+
+  static async createNewAppearanceStream(annotation, xref, params) {
+    
+    const { color, rect, paths, thickness, opacity } = annotation;
+
+    const appearanceBuffer = [
+      `${thickness} w 1 J 1 j`,
+      `${getPdfColor(color, /* isFill */ false)}`,
+    ];
+
+    if (opacity !== 1) {
+      appearanceBuffer.push("/R0 gs");
+    }
+
+    const buffer = [];
+    for (const { rectAngle } of paths) {
+      buffer.length = 0;
+      buffer.push(
+        `${numberToString(rectAngle[0])} ${numberToString(rectAngle[1])} m`
+      );
+      if (rectAngle.length === 2) {
+        buffer.push(
+          `${numberToString(rectAngle[0])} ${numberToString(rectAngle[1])} l S`
+        );
+      } else {
+        for (let i = 2; i < rectAngle.length; i += 2) {
+          buffer.push(
+            `${numberToString(rectAngle[i])} ${numberToString(rectAngle[i + 1])} l`
+          );
+        }
+        buffer.push("h S");
+      }
+      appearanceBuffer.push(buffer.join("\n"));
+    }
+    const appearance = appearanceBuffer.join("\n");
+
+    const appearanceStreamDict = new Dict(xref);
+    appearanceStreamDict.set("FormType", 1);
+    appearanceStreamDict.set("Subtype", Name.get("Form"));
+    appearanceStreamDict.set("Type", Name.get("XObject"));
+    appearanceStreamDict.set("BBox", rect);
+    appearanceStreamDict.set("Length", appearance.length);
+
+    if (opacity !== 1) {
+      const resources = new Dict(xref);
+      const extGState = new Dict(xref);
+      const r0 = new Dict(xref);
+      r0.set("CA", opacity);
+      r0.set("Type", Name.get("ExtGState"));
+      extGState.set("R0", r0);
+      resources.set("ExtGState", extGState);
+      appearanceStreamDict.set("Resources", resources);
+    }
+
+    const ap = new StringStream(appearance);
+    ap.dict = appearanceStreamDict;
+
+    return ap;
+  }
+
 }
 
 class InkAnnotation extends MarkupAnnotation {

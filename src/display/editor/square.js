@@ -428,7 +428,7 @@ class SquareEditor extends AnnotationEditor {
     const rectWidth = Math.abs(width);
     const rectHeight = Math.abs(height);
 
-    let bezier = [[[rectX, rectY], [rectX + rectWidth, rectY], [rectX + rectWidth, rectY + rectHeight], [rectX, rectY + rectHeight]]];
+    let rectAngle = [[[rectX, rectY], [rectX + rectWidth, rectY], [rectX + rectWidth, rectY + rectHeight], [rectX, rectY + rectHeight]]];
     const path2D = this.#currentPath2D;
     const currentPath = this.currentPath;
     this.currentPath = [];
@@ -436,7 +436,7 @@ class SquareEditor extends AnnotationEditor {
         
     const cmd = () => {
       this.allRawPaths.push(currentPath);
-      this.paths.push(bezier);
+      this.paths.push(rectAngle);
       this.bezierPath2D.push(path2D);
       this._uiManager.rebuild(this);
     };
@@ -585,16 +585,17 @@ class SquareEditor extends AnnotationEditor {
 
     for (const path of this.paths) {
       for (const [first, control1, control2, second] of path) {
-        const bbox = Util.bezierBoundingBox(
-          ...first,
-          ...control1,
-          ...control2,
-          ...second
-        );
-        xMin = Math.min(xMin, bbox[0]);
-        yMin = Math.min(yMin, bbox[1]);
-        xMax = Math.max(xMax, bbox[2]+20);
-        yMax = Math.max(yMax, bbox[3]);
+        // const bbox = Util.bezierBoundingBox(
+        //   ...first,
+        //   ...control1,
+        //   ...control2,
+        //   ...second
+        // );
+        xMin = first[0];
+        yMin = first[1];
+        xMax = control2[0];
+        yMax = control2[1];
+        // todo: select all shapes within current editor
       }
     }
 
@@ -627,10 +628,10 @@ class SquareEditor extends AnnotationEditor {
     const padding = this.thickness / 2;
     const shiftX = s * tx + padding;
     const shiftY = s * ty + padding;
-    for (const bezier of this.paths) {
+    for (const rectangle of this.paths) {
       const buffer = [];
-      for (let j = 0, jj = bezier.length; j < jj; j++) {
-        const [first, control1, control2, second] = bezier[j];
+      for (let j = 0, jj = rectangle.length; j < jj; j++) {
+        const [first, control1, control2, second] = rectangle[j];
 
         const p10 = s * first[0] + shiftX;
         const p11 = s * first[1] + shiftY;
@@ -647,12 +648,10 @@ class SquareEditor extends AnnotationEditor {
         buffer.push(p20, p21, p30, p31, p40, p41);
       }
       paths.push({
-        bezier: SquareEditor.#toPDFCoordinates(buffer, rect, this.rotation),
+        rectAngle: SquareEditor.#toPDFCoordinates(buffer, rect, this.rotation),
       });
     }
-    // if (paths.length > 0) {
-      // paths[0].bezier = [98, 652, 98, 652, 293, 51, 293, 514];
-    // }
+
     return paths;
   }
 
@@ -716,19 +715,19 @@ class SquareEditor extends AnnotationEditor {
 
     const { paths, rect, rotation } = data;
 
-    for (let { bezier } of paths) {
-      bezier = SquareEditor.#fromPDFCoordinates(bezier, rect, rotation);
+    for (let { rectAngle } of paths) {
+      const rectangle = SquareEditor.#fromPDFCoordinates(rectAngle, rect, rotation);
       const path = [];
       editor.paths.push(path);
-      let p0 = scaleFactor * (bezier[0] - padding);
-      let p1 = scaleFactor * (bezier[1] - padding);
-      for (let i = 2, ii = bezier.length; i < ii; i += 6) {
-        const p10 = scaleFactor * (bezier[i] - padding);
-        const p11 = scaleFactor * (bezier[i + 1] - padding);
-        const p20 = scaleFactor * (bezier[i + 2] - padding);
-        const p21 = scaleFactor * (bezier[i + 3] - padding);
-        const p30 = scaleFactor * (bezier[i + 4] - padding);
-        const p31 = scaleFactor * (bezier[i + 5] - padding);
+      let p0 = scaleFactor * (rectangle[0] - padding);
+      let p1 = scaleFactor * (rectangle[1] - padding);
+      for (let i = 2, ii = rectangle.length; i < ii; i += 6) {
+        const p10 = scaleFactor * (rectangle[i] - padding);
+        const p11 = scaleFactor * (rectangle[i + 1] - padding);
+        const p20 = scaleFactor * (rectangle[i + 2] - padding);
+        const p21 = scaleFactor * (rectangle[i + 3] - padding);
+        const p30 = scaleFactor * (rectangle[i + 4] - padding);
+        const p31 = scaleFactor * (rectangle[i + 5] - padding);
         path.push([
           [p0, p1],
           [p10, p11],

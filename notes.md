@@ -27,3 +27,22 @@ annotations.js. I couldn't find it using the debugger but manually guessing to s
 -> some source files are not loaded in chrome sources tab for some reason such as annotations.js
 
 and maybe the source problem for not saving/printing properly is due to missing parts in annotation.js
+
+<div style="border: 1px solid; padding: 10px; width: fit-content;">
+  <b> Conclusion: </b>
+
+  <p> 1- The source of the problem (not saving/printing properly) is in the <code>annotations.js</code> file. </p>
+
+  <p>For all future annotations; in addition to the known files; such as adding an editor file within <code>src/display/editor</code>, the editor must be added properly to <code>src/display/annotation.js</code> as well to ensure proper rendering and saving/printing.</p>
+</div>
+
+
+__TODO:__
+- [ ] clean: annotations.js, all editors
+- [ ] Refine square and line editors; define square and line properly (not mimicking ink) and remove unncecessary loops
+- [ ] Pay attention to and improve `createNewAppearanceStream` in `annotation.js`; for instance,
+```
+`${numberToString(bezier[0])} ${numberToString(bezier[1])} m`
+```
+`m` has a meaning `moveTo` in canva context.
+
