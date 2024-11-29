@@ -50,6 +50,7 @@ function getViewerConfiguration() {
       zoomIn: document.getElementById("zoomIn"),
       zoomOut: document.getElementById("zoomOut"),
       print: document.getElementById("print"),
+      openFile: document.getElementById("open"),
       editorFreeTextButton: document.getElementById("editorFreeText"),
       editorFreeTextParamsToolbar: document.getElementById(
         "editorFreeTextParamsToolbar"
@@ -79,10 +80,7 @@ function getViewerConfiguration() {
       toolbar: document.getElementById("secondaryToolbar"),
       toggleButton: document.getElementById("secondaryToolbarToggle"),
       presentationModeButton: document.getElementById("presentationMode"),
-      openFileButton:
-        typeof PDFJSDev === "undefined" || PDFJSDev.test("GENERIC")
-          ? document.getElementById("secondaryOpenFile")
-          : null,
+      openFileButton: document.getElementById("secondaryOpenFile"),
       printButton: document.getElementById("secondaryPrint"),
       downloadButton: document.getElementById("secondaryDownload"),
       viewBookmarkButton: document.getElementById("viewBookmark"),
@@ -263,23 +261,61 @@ function webViewerLoad() {
   }
 
   const pdfViewer = document.querySelector(".pdfViewer");
-  const brightnessInputElement = document.getElementById("editorBrightness");
+  // const brightnessInputElement = document.getElementById("editorBrightness");
   const sepiaInputElement = document.getElementById("editorSepia");
   const darkInputElement = document.getElementById("editorDark");
 
   // Function to update filters
   function updateFilters() {
-    const brightnessInput = parseFloat(brightnessInputElement.value);
-    const sepiaInput = parseFloat(sepiaInputElement.value);
-    const darkInput = parseFloat(darkInputElement.value);
-
-    pdfViewer.style.filter = `brightness(${1 - darkInput}) sepia(${sepiaInput}) brightness(${brightnessInput + 1})`;
+    // const brightnessInput = parseFloat(brightnessInputElement.value);
+    // const brightnessInput = 0;
+    // const sepiaInput = parseFloat(sepiaInputElement.value);
+    // const darkInput = parseFloat(darkInputElement.value);
+    // pdfViewer.style.filter = `brightness(${1 - darkInput}) sepia(${sepiaInput}) brightness(${brightnessInput + 1})`;
+    // pdfViewer.style.filter = `brightness(${1 - darkInput}) sepia(${sepiaInput}) brightness(1)`;
+    pdfViewer.style.filter = `brightness(${1 - DarkValue}) sepia(${SepiaValue}) brightness(1)`;
+    
   }
+  
+  let SepiaValue = 0.25;
+  let DarkValue = 0.3;
+  const step = 0.1;
+  const min = 0;
+  const max = 1;
+  document.getElementById('editorSepiaU').addEventListener('click', function(event) {
+    // Increment
+    if (SepiaValue + step <= max) {
+      SepiaValue += step;
+    }
+    updateFilters();
+  });
+  document.getElementById('editorSepiaD').addEventListener('click', function(event) {
+    // Decrement
+    if (SepiaValue - step >= min) {
+      SepiaValue -= step;
+    }
+    updateFilters();
+  });
+
+  document.getElementById('editorDarkU').addEventListener('click', function(event) {
+    // Increment
+    if (DarkValue + step <= max) {
+      DarkValue += step;
+    }
+    updateFilters();
+  });
+  document.getElementById('editorDarkD').addEventListener('click', function(event) {
+    // Decrement
+    if (DarkValue - step >= min) {
+      DarkValue -= step;
+    }
+    updateFilters();
+  });
 
   // Add event listeners to the input elements
-  brightnessInputElement.addEventListener("input", updateFilters);
-  sepiaInputElement.addEventListener("input", updateFilters);
-  darkInputElement.addEventListener("input", updateFilters);
+  // brightnessInputElement.addEventListener("input", updateFilters);
+  // sepiaInputElement.addEventListener("input", updateFilters);
+  // darkInputElement.addEventListener("input", updateFilters);
 
   // Initial call to set the filters based on the current input values
   updateFilters();

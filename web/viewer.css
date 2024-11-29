@@ -249,8 +249,21 @@ body {
   filter: sepia(0.0) brightness(0.0);
 } */
 
-#editorBrightness, #editorSepia, #editorDark {
+/* #editorBrightness, #editorSepia, #editorDark {
   width: 40px;
+} */
+
+#editorSepiaU, #editorSepiaD, #editorDarkU, #editorDarkD {
+  display: flex; 
+  flex-direction: column;
+  cursor: pointer; 
+  border: none; 
+  background: none;
+  width: 15px; 
+  height: 15px;
+  margin-left: 15px;
+  font-size: inherit;
+  opacity: 0.3;
 }
 
 #viewerContainer.pdfPresentationMode:fullscreen {
@@ -970,7 +983,7 @@ body {
 }
 
 /*#if GENERIC*/
-#secondaryOpenFile::before {
+:is(#open, #secondaryOpenFile)::before {
   mask-image: var(--toolbarButton-openFile-icon);
 }
 /*#endif*/

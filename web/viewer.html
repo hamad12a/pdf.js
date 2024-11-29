@@ -264,7 +264,7 @@ See https://github.com/adobe-type-tools/cmap-resources
         <div id="secondaryToolbar" class="secondaryToolbar hidden doorHangerRight">
           <div id="secondaryToolbarButtonContainer">
 <!--#if GENERIC-->
-            <button id="secondaryOpenFile" class="secondaryToolbarButton" type="button" title="Open File" tabindex="51" data-l10n-id="pdfjs-open-file-button">
+            <button id="secondaryOpenFile" class="secondaryToolbarButton visibleMediumView" type="button" title="Open File" tabindex="51" data-l10n-id="pdfjs-open-file-button">
               <span data-l10n-id="pdfjs-open-file-button-label">Open</span>
             </button>
 <!--#endif-->
@@ -389,15 +389,28 @@ See https://github.com/adobe-type-tools/cmap-resources
                   <input type="number" id="pageNumber" class="toolbarField" title="Page" value="1" min="1" tabindex="15" data-l10n-id="pdfjs-page-input" autocomplete="off">
                 </span>
                 <span id="numPages" class="toolbarLabel"></span>
+
+                <!-- <label for="brightness">B:</label>
+                <input id="editorBrightness" type="number" value="-0.0" step="0.1"> -->
+                <!-- <label for="sepia"></label>
+                <input id="editorSepia" type="number" value="0.25" step="0.1" min="0" max="1">
+                <label for="dark"></label>
+                <input id="editorDark" type="number" value="0.3" step="0.1"> -->
+
+                <div>
+                  <button id="editorSepiaU" type="button">▲</button>
+                  <button id="editorSepiaD" type="button">▼</button>
+                </div>
+                <div>
+                  <button id="editorDarkU" type="button">▲</button>
+                  <button id="editorDarkD" type="button">▼</button>
+                </div>
+
+              
+                
               </div>
               <div id="toolbarViewerRight">
                 <div id="editorModeButtons" class="splitToolbarButton toggled" role="radiogroup">
-                  <label for="brightness">B:</label>
-                  <input id="editorBrightness" type="number" value="-0.0" step="0.1">
-                  <label for="sepia">S:</label>
-                  <input id="editorSepia" type="number" value="0.25" step="0.1" min="0" max="1">
-                  <label for="dark">D:</label>
-                  <input id="editorDark" type="number" value="0.3" step="0.1">
                   <button id="editorHighlight" class="toolbarButton" type="button" title="Highlight" role="radio" aria-checked="false" aria-controls="editorHighlightParamsToolbar" tabindex="31" data-l10n-id="pdfjs-editor-highlight-button">
                     <span data-l10n-id="pdfjs-editor-highlight-button-label">Highlight</span>
                   </button>
@@ -422,6 +435,10 @@ See https://github.com/adobe-type-tools/cmap-resources
 
                 <button id="print" class="toolbarButton hiddenMediumView" type="button" title="Print" tabindex="41" data-l10n-id="pdfjs-print-button">
                   <span data-l10n-id="pdfjs-print-button-label">Print</span>
+                </button>
+
+                <button id="open" class="toolbarButton hiddenMediumView" type="button" title="Open" tabindex="40" data-l10n-id="pdfjs-open-file-button">
+                  <span data-l10n-id="pdfjs-open-file-button-label">Open</span>
                 </button>
 
                 <button id="download" class="toolbarButton hiddenMediumView" type="button" title="Save" tabindex="42" data-l10n-id="pdfjs-save-button">

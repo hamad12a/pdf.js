@@ -139,6 +139,14 @@ class Toolbar {
       },
     ];
 
+    if (typeof PDFJSDev === "undefined" || PDFJSDev.test("GENERIC")) {
+      buttons.push({
+        element: options.openFile,
+        eventName: "openfile",
+        close: true,
+      });
+    }
+
     // Bind the event listeners for click and various other actions.
     this.#bindListeners(buttons);
 
