@@ -320,6 +320,14 @@ function webViewerLoad() {
   // Initial call to set the filters based on the current input values
   updateFilters();
 
+  document.getElementById('fullScreen').addEventListener('click', function(event) {
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    } else {
+      document.documentElement.requestFullscreen();
+    }    
+  });
+
   PDFViewerApplication.run(config);
 }
 

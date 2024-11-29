@@ -81,6 +81,7 @@
   --loading-icon: url(images/loading.svg);
   --treeitem-expanded-icon: url(images/treeitem-expanded.svg);
   --treeitem-collapsed-icon: url(images/treeitem-collapsed.svg);
+  --toolbarButton-fullScreen-icon: url(images/toolbarButton-fullScreen.svg);
   --toolbarButton-editorFreeText-icon: url(images/toolbarButton-editorFreeText.svg);
   --toolbarButton-editorHighlight-icon: url(images/toolbarButton-editorHighlight.svg);
   --toolbarButton-editorInk-icon: url(images/toolbarButton-editorInk.svg);
@@ -265,6 +266,23 @@ body {
   font-size: inherit;
   opacity: 0.3;
 }
+
+/* #fullScreen {
+  background-color: rgb(0 0 0);
+  width: 21px; 
+  height: 21px;
+  cursor: pointer; 
+  margin-left: 15px;
+
+} */
+
+#fullScreen::before {
+  mask-image: var(--toolbarButton-fullScreen-icon);
+  width: 21px;
+  height: 21px;
+  top: 2px
+}
+
 
 #viewerContainer.pdfPresentationMode:fullscreen {
   top: 0;
