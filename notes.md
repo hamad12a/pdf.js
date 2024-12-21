@@ -46,3 +46,19 @@ __TODO:__
 ```
 `m` has a meaning `moveTo` in canva context.
 
+
+
+##### To install for firefox:
+
+
+unzip /home/hamad12a_pop/firefox/omni.ja -d test
+cd test
+rm -rf ./chrome/pdfjs/content/build/*
+rm -rf ./chrome/pdfjs/content/web/*
+npx gulp mozcentral
+cp -r /media/hamad12a_pop/be7694cc-8588-4281-b142-cfa422e8702e/home/hamad12a/Repo/pdf.js/build/mozcentral/browser/extensions/pdfjs/content/web/* ./chrome/pdfjs/content/web/
+cp -r /media/hamad12a_pop/be7694cc-8588-4281-b142-cfa422e8702e/home/hamad12a/Repo/pdf.js/build/mozcentral/browser/extensions/pdfjs/content/build/* ./chrome/pdfjs/content/build/
+zip -qr9XD omni.ja *
+cp omni.ja ../
+
+restart firefox
