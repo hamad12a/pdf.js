@@ -881,12 +881,14 @@ class FreeTextEditor extends AnnotationEditor {
     style.color = this.#color;
 
     content.replaceChildren();
-    for (const line of this.#content.split("\n")) {
-      const div = document.createElement("div");
-      div.append(
-        line ? document.createTextNode(line) : document.createElement("br")
-      );
-      content.append(div);
+    // const lines = this.#content;
+    const lines = this.#content.split("\n").filter(line => line.trim() !== "");
+    for (let i = 0, ii = lines.length; i < ii; ++i) {
+      const line = lines[i];
+      content.append(document.createTextNode(line));
+      if (i < ii - 1) {
+      content.append(document.createElement("br"));
+      }
     }
 
     const padding = FreeTextEditor._internalPadding * this.parentScale;

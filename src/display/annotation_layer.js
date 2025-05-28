@@ -2314,11 +2314,15 @@ class PopupElement {
           : "",
       },
     };
-    for (const line of text.split("\n")) {
+    for (const line of text.split("\n").filter(line => line.trim() !== "")) {
+      if (popupLines.length > 0) {
       popupLines.push({
-        name: "span",
-        value: line,
-        attributes: lineAttributes,
+        name: "br"
+      });
+      }
+      popupLines.push({
+      name: "#text",
+      value: line
       });
     }
     return popupContent;
