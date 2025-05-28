@@ -2514,10 +2514,12 @@ class FreeTextAnnotationElement extends AnnotationElement {
       const content = document.createElement("div");
       content.classList.add("annotationTextContent");
       content.setAttribute("role", "comment");
-      for (const line of this.textContent) {
-        const lineSpan = document.createElement("span");
-        lineSpan.textContent = line;
-        content.append(lineSpan);
+      for (let i = 0, ii = this.textContent.length; i < ii; ++i) {
+        const line = this.textContent[i];
+        content.append(document.createTextNode(line));
+        if (i < ii - 1) {
+          content.append(document.createElement("br"));
+        }
       }
       this.container.append(content);
     }

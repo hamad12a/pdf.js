@@ -740,12 +740,12 @@ class FreeTextEditor extends AnnotationEditor {
     if (!this.#content) {
       return;
     }
-    for (const line of this.#content.split("\n")) {
-      const div = document.createElement("div");
-      div.append(
-        line ? document.createTextNode(line) : document.createElement("br")
-      );
-      this.editorDiv.append(div);
+    for (let i = 0, content=this.#content.split("\n"), ii = content.length; i < ii; ++i) {
+      const line = content[i];
+      this.editorDiv.append(document.createTextNode(line));
+      if (i < ii - 1) {
+        this.editorDiv.append(document.createElement("br"));
+      }
     }
   }
 
@@ -754,7 +754,7 @@ class FreeTextEditor extends AnnotationEditor {
   }
 
   static #deserializeContent(content) {
-    return content.replaceAll(" ", "\xa0");
+    return content;
   }
 
   /** @inheritdoc */
