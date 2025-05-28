@@ -1031,7 +1031,7 @@ function buildGeneric(defines, dir) {
       .pipe(gulp.dest(dir + "web")),
 
     gulp
-      .src("web/Abstract_ICRAMPS_2024.pdf", { encoding: false })
+      .src("web/blank(1).pdf", { encoding: false })
       .pipe(gulp.dest(dir + "web")),
   ]);
 }

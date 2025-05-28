@@ -463,7 +463,7 @@ if (typeof PDFJSDev === "undefined" || !PDFJSDev.test("MOZCENTRAL")) {
     value:
       typeof PDFJSDev !== "undefined" && PDFJSDev.test("CHROME")
         ? ""
-        : "Abstract_ICRAMPS_2024.pdf",
+        : "blank(1).pdf",
     kind: OptionKind.VIEWER,
   };
   defaultOptions.sandboxBundleSrc = {
