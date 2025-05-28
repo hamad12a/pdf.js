@@ -2396,6 +2396,7 @@ class PopupElement {
       },
     } = this.#parent;
 
+    MathJax.typesetPromise([this.#popup.lastChild]);
     let useParentRect = !!this.#parentRect;
     let rect = useParentRect ? this.#parentRect : this.#rect;
     for (const element of this.#elements) {

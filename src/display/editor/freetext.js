@@ -304,6 +304,7 @@ class FreeTextEditor extends AnnotationEditor {
     this.parent.updateToolbar(AnnotationEditorType.FREETEXT);
     super.enableEditMode();
     this.overlayDiv.classList.remove("enabled");
+    MathJax.startup.document.getMathItemsWithin(this.editorDiv).forEach(e=>e.typesetRoot.replaceWith(e.start.delim+e.math+e.end.delim));
     this.editorDiv.contentEditable = true;
     this._isDraggable = false;
     this.div.removeAttribute("aria-activedescendant");
@@ -335,6 +336,7 @@ class FreeTextEditor extends AnnotationEditor {
     super.disableEditMode();
     this.overlayDiv.classList.add("enabled");
     this.editorDiv.contentEditable = false;
+    MathJax.typesetPromise([this.editorDiv]);
     this.div.setAttribute("aria-activedescendant", this.#editorDivId);
     this._isDraggable = true;
     this.editorDiv.removeEventListener("keydown", this.#boundEditorDivKeydown);

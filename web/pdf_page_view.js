@@ -388,6 +388,7 @@ class PDFPageView {
       console.error(`#renderAnnotationLayer: "${ex}".`);
       error = ex;
     } finally {
+      MathJax.typesetPromise([this.annotationLayer.div]);
       this.#dispatchLayerRendered("annotationlayerrendered", error);
     }
   }
