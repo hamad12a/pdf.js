@@ -102,7 +102,6 @@ const DEFAULT_LAYER_PROPERTIES =
       };
 
 const LAYERS_ORDER = new Map([
-  ["canvasWrapper", 0],
   ["textLayer", 1],
   ["annotationLayer", 2],
   ["annotationEditorLayer", 3],
@@ -913,9 +912,9 @@ class PDFPageView {
 
     // Wrap the canvas so that if it has a CSS transform for high DPI the
     // overflow will be hidden in Firefox.
-    const canvasWrapper = document.createElement("div");
-    canvasWrapper.classList.add("canvasWrapper");
-    this.#addLayer(canvasWrapper, "canvasWrapper");
+    // const canvasWrapper = document.createElement("div");
+    // canvasWrapper.classList.add("canvasWrapper");
+    // div.append(canvasWrapper);
 
     if (
       !this.textLayer &&
@@ -1004,7 +1003,7 @@ class PDFPageView {
         showCanvas = null; // Only invoke the function once.
       }
     };
-    canvasWrapper.append(canvas);
+    // canvasWrapper.append(canvas);
     this.canvas = canvas;
 
     const ctx = canvas.getContext("2d", {
@@ -1084,7 +1083,7 @@ class PDFPageView {
           pageIndex: this.id,
         });
         await this.#renderDrawLayer();
-        this.drawLayer.setParent(canvasWrapper);
+        // this.drawLayer.setParent(canvasWrapper);
 
         if (!this.annotationEditorLayer) {
           this.annotationEditorLayer = new AnnotationEditorLayerBuilder({
