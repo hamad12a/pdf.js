@@ -106,8 +106,6 @@
       inset: 0;
       overflow: visible;
       white-space: nowrap;
-      font: 10px sans-serif;
-      line-height: 1.35;
       user-select: none;
     }
   }

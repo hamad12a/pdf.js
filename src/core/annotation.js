@@ -3949,7 +3949,7 @@ class FreeTextAnnotation extends MarkupAnnotation {
       [w, h] = [h, w];
     }
 
-    const lines = value.split("\n");
+    const lines = value.split("\n").filter(line => line.trim() !== "");
     const scale = fontSize / 1000;
     let totalWidth = -Infinity;
     const encodedLines = [];

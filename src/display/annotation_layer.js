@@ -2340,7 +2340,7 @@ class PopupElement {
     const p = document.createElement("p");
     p.classList.add("popupContent");
     p.dir = dir;
-    const lines = str.split(/(?:\r\n?|\n)/);
+    const lines = str.split(/(?:\r\n?|\n)/).filter(line => line.trim() !== "");
     for (let i = 0, ii = lines.length; i < ii; ++i) {
       const line = lines[i];
       p.append(document.createTextNode(line));

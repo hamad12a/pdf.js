@@ -1793,7 +1793,10 @@ class AnnotationEditor {
       content.classList.add("annotationContent", this.editorType);
       canvas.before(content);
     }
-
+    const textContent = annotation.container.querySelector(".annotationTextContent");
+    if (textContent) {
+      textContent.style.display = "none";
+    }
     return content;
   }
 

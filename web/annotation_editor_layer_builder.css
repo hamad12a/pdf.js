@@ -515,8 +515,6 @@
   inset: 0;
   overflow: visible;
   white-space: nowrap;
-  font: 10px sans-serif;
-  line-height: var(--freetext-line-height);
   user-select: none;
 }
 
