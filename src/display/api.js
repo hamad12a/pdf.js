@@ -1424,7 +1424,7 @@ class PDFPageProxy {
     printAnnotationStorage = null,
     isEditing = false,
   }) {
-    annotationMode = AnnotationMode.DISABLE;
+    // annotationMode = AnnotationMode.DISABLE;
     this._stats?.time("Overall");
 
     const intentArgs = this._transport.getRenderingIntent(
