@@ -73,6 +73,8 @@ const TYPESTEST_DIR = BUILD_DIR + "typestest/";
 const COMMON_WEB_FILES = [
   "web/images/*.{png,svg,gif}",
   "web/debugger.{css,mjs}",
+  "web/mathjax-config.js",
+  "web/tex-chtml.js",
 ];
 const MOZCENTRAL_DIFF_FILE = "mozcentral.diff";
 
@@ -305,6 +307,8 @@ function createWebpackConfig(
     // `core-js`, see https://github.com/zloirock/core-js/issues/514,
     // should be excluded from processing.
     /node_modules[\\/]core-js/,
+    // QuickJS external files are pre-built and don't need Babel processing
+    /external[\\/]quickjs[\\/]/,
   ];
 
   const babelPresets = skipBabel
