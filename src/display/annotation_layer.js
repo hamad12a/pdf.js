@@ -3232,18 +3232,18 @@ class AnnotationLayer {
       if (!element) {
         continue;
       }
-
-      canvas.className = "annotationContent";
-      const { firstChild } = element;
-      if (!firstChild) {
-        element.append(canvas);
-      } else if (firstChild.nodeName === "CANVAS") {
-        firstChild.replaceWith(canvas);
-      } else if (!firstChild.classList.contains("annotationContent")) {
-        firstChild.before(canvas);
-      } else {
-        firstChild.after(canvas);
-      }
+      // Remove annotation canva element from annotationLayer, thus, prevent it from being appended to canvasWrapper after setting this.data.hasOwnCanvas = true;
+      // canvas.className = "annotationContent";
+      // const { firstChild } = element;
+      // if (!firstChild) {
+      //   element.append(canvas);
+      // } else if (firstChild.nodeName === "CANVAS") {
+      //   firstChild.replaceWith(canvas);
+      // } else if (!firstChild.classList.contains("annotationContent")) {
+      //   firstChild.before(canvas);
+      // } else {
+      //   firstChild.after(canvas);
+      // }
     }
     this.#annotationCanvasMap.clear();
   }
