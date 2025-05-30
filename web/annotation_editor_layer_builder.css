@@ -508,7 +508,7 @@
   height: auto;
   touch-action: none;
 }
-
+.annotationTextContent {white-space: pre;}
 .annotationEditorLayer .freeTextEditor .internal {
   background: transparent;
   border: none;

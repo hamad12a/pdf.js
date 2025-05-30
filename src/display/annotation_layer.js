@@ -2518,6 +2518,8 @@ class FreeTextAnnotationElement extends AnnotationElement {
     if (this.textContent) {
       const content = document.createElement("div");
       content.classList.add("annotationTextContent");
+      content.style.fontSize = "calc(var(--scale-factor) * "+this.data.defaultAppearanceData.fontSize+"px)";
+      content.style.color = Util.makeHexColor(...this.data.defaultAppearanceData.fontColor);
       content.setAttribute("role", "comment");
       for (let i = 0, ii = this.textContent.length; i < ii; ++i) {
         const line = this.textContent[i];
