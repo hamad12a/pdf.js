@@ -2992,9 +2992,41 @@ class HighlightAnnotationElement extends AnnotationElement {
     // Create highlight rectangles from quadPoints
     this._createVisibleHighlightRects(quadPoints, rect, svg);
     
-    // Insert at the beginning to ensure proper stacking order
-    canvasWrapper.insertBefore(svg, canvasWrapper.firstChild);
+    // Ensure canvas always remains the first child of canvasWrapper
+    this._ensureCanvasFirstChild(canvasWrapper);
+    
+    // Insert SVG after canvas to preserve canvas as first child
+    const canvas = canvasWrapper.querySelector('canvas');
+    if (canvas && canvas.nextSibling) {
+      canvasWrapper.insertBefore(svg, canvas.nextSibling);
+    } else {
+      canvasWrapper.appendChild(svg);
+    }
+    
+    // Set up observer to maintain canvas order during DOM changes
+    this._setupCanvasOrderObserver(canvasWrapper);
   }
+
+  _ensureCanvasFirstChild(canvasWrapper) {
+    const canvas = canvasWrapper.querySelector('canvas');
+    if (canvas && canvas !== canvasWrapper.firstChild) {
+      canvasWrapper.insertBefore(canvas, canvasWrapper.firstChild);
+    }
+  }
+
+  _setupCanvasOrderObserver(canvasWrapper) {
+    if (canvasWrapper._canvasOrderObserver) {
+      return;
+    }
+    
+    const observer = new MutationObserver(() => {
+      this._ensureCanvasFirstChild(canvasWrapper);
+    });
+    
+    observer.observe(canvasWrapper, { childList: true });
+    canvasWrapper._canvasOrderObserver = observer;
+  }
+
   _createVisibleHighlightRects(quadPoints, rect, svg) {
     const [rectBlX, rectBlY, rectTrX, rectTrY] = rect.map(x => Math.fround(x));
     const width = rectTrX - rectBlX;
