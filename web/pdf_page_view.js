@@ -237,6 +237,8 @@ class PDFPageView {
         this.l10n.translate(this.div);
       }
     }
+    // Restore any persistent highlights now that canvasWrapper is available
+    this.#restorePersistentHighlights();
   }
 
   #addLayer(div, name) {
@@ -851,6 +853,31 @@ class PDFPageView {
     }
   }
 
+  #restorePersistentHighlights() {
+    // Restore any saved highlight annotations that were previously registered
+    if (!this.div._savedHighlights) {
+      return;
+    }
+
+    const canvasWrapper = this.div.querySelector('.canvasWrapper');
+    if (!canvasWrapper) {
+      return;
+    }
+
+    for (const [id, highlightData] of this.div._savedHighlights) {
+      // Check if the SVG is already present
+      const existingSVG = canvasWrapper.querySelector(`svg.persistentHighlight[data-annotation-id="${id}"]`);
+      if (existingSVG) {
+        continue; // Skip if already present
+      }
+
+      // Recreate the persistent highlight SVG
+      if (highlightData.annotationElement) {
+        highlightData.annotationElement._createPersistentHighlight(this.div);
+      }
+    }
+  }
+
   get width() {
     return this.viewport.width;
   }
@@ -917,6 +944,9 @@ class PDFPageView {
     canvasWrapper.classList.add("canvasWrapper");
     this.#addLayer(canvasWrapper, "canvasWrapper");
     
+    // Restore any persistent highlights now that canvasWrapper is available
+    this.#restorePersistentHighlights();
+
     if (
       !this.textLayer &&
       this.#textLayerMode !== TextLayerMode.DISABLE &&

@@ -4759,7 +4759,7 @@ class HighlightAnnotation extends MarkupAnnotation {
 
     const { dict, xref } = params;
     this.data.annotationType = AnnotationType.HIGHLIGHT;
-
+    this.data.hasOwnCanvas = true; // To hide the annotation own canvas, it must has own canvas separate from the rest pdf document
     const quadPoints = (this.data.quadPoints = getQuadPoints(dict, null));
     if (quadPoints) {
       const resources = this.appearance?.dict.get("Resources");

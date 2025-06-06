@@ -2897,7 +2897,169 @@ class HighlightAnnotationElement extends AnnotationElement {
     }
 
     this.container.classList.add("highlightAnnotation");
+    
+    // Register this highlight annotation with the page view for persistent rendering
+    this._registerPersistentHighlight();
+    
     return this.container;
+  }
+
+  _registerPersistentHighlight() {
+    // Find the page view element to register this highlight for persistent rendering
+    const pageElement = this.parent.div.parentElement;
+    if (!pageElement) {
+      return;
+    }
+
+    // Store the highlight data on the page element for persistent rendering
+    if (!pageElement._savedHighlights) {
+      pageElement._savedHighlights = new Map();
+    }
+
+    const highlightData = {
+      id: this.data.id,
+      quadPoints: this.data.quadPoints,
+      color: this.data.color,
+      rect: this.data.rect,
+      annotationElement: this,
+    };
+
+    pageElement._savedHighlights.set(this.data.id, highlightData);
+
+    // Create the initial visible highlight
+    this._createPersistentHighlight(pageElement);
+  }
+
+  _createPersistentHighlight(pageElement) {
+    const canvasWrapper = pageElement.querySelector('.canvasWrapper');
+    if (!canvasWrapper) {
+      return;
+    }
+
+    const { quadPoints, color, rect } = this.data;
+    if (!quadPoints) {
+      return;
+    }
+
+    // Remove existing SVG highlight if it exists
+    const existingSVG = canvasWrapper.querySelector(`svg.persistentHighlight[data-annotation-id="${this.data.id}"]`);
+    if (existingSVG) {
+      existingSVG.remove();
+    }
+
+    // Create SVG element for the visible highlight
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.classList.add('highlight', 'persistentHighlight');
+    svg.setAttribute('data-annotation-id', this.data.id);
+    
+    // Set fill and fill-opacity on the parent SVG from appearance data
+    const fillColor = this._getHighlightColor(color);
+    const fillOpacity = this.data.fillAlpha !== undefined ? this.data.fillAlpha : 1;
+    
+    svg.setAttribute('fill', fillColor);
+    svg.setAttribute('fill-opacity', fillOpacity);
+    
+    // Use the exact same positioning logic as annotation containers
+    const { page, viewport } = this.parent;
+    const normalizedRect = Util.normalizeRect([
+      rect[0],
+      page.view[3] - rect[1] + page.view[1],
+      rect[2],
+      page.view[3] - rect[3] + page.view[1],
+    ]);
+    const { pageWidth, pageHeight, pageX, pageY } = viewport.rawDims;
+    const width = rect[2] - rect[0];
+    const height = rect[3] - rect[1];
+    
+    // Position the SVG exactly like annotation containers
+    const leftPercentage = (100 * (normalizedRect[0] - pageX)) / pageWidth;
+    const topPercentage = (100 * (normalizedRect[1] - pageY)) / pageHeight;
+    
+    svg.style.position = 'absolute';
+    svg.style.left = `${leftPercentage}%`;
+    svg.style.top = `${topPercentage}%`;
+    svg.style.width = `${(100 * width) / pageWidth}%`;
+    svg.style.height = `${(100 * height) / pageHeight}%`;
+    svg.style.pointerEvents = 'none';
+    svg.style.zIndex = '1';
+    svg.style.mixBlendMode = 'multiply';
+    
+    // Set viewBox to use normalized coordinates
+    svg.setAttribute('viewBox', '0 0 1 1');
+    svg.setAttribute('preserveAspectRatio', 'none');
+    
+    // Create highlight rectangles from quadPoints
+    this._createVisibleHighlightRects(quadPoints, rect, svg);
+    
+    // Insert at the beginning to ensure proper stacking order
+    canvasWrapper.insertBefore(svg, canvasWrapper.firstChild);
+  }
+  _createVisibleHighlightRects(quadPoints, rect, svg) {
+    const [rectBlX, rectBlY, rectTrX, rectTrY] = rect.map(x => Math.fround(x));
+    const width = rectTrX - rectBlX;
+    const height = rectTrY - rectBlY;
+    
+    // Create rectangles from quadPoints using the same logic as _createQuadrilaterals
+    for (let i = 2, ii = quadPoints.length; i < ii; i += 8) {
+      const trX = quadPoints[i];
+      const trY = quadPoints[i + 1];
+      const blX = quadPoints[i + 2];
+      const blY = quadPoints[i + 3];
+      
+      const rectElement = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      const x = (blX - rectBlX) / width;
+      const y = (rectTrY - trY) / height;
+      const rectWidth = (trX - blX) / width;
+      const rectHeight = (trY - blY) / height;
+      
+      rectElement.setAttribute('x', x);
+      rectElement.setAttribute('y', y);
+      rectElement.setAttribute('width', rectWidth);
+      rectElement.setAttribute('height', rectHeight);
+      // Fill and fill-opacity are now inherited from parent SVG
+      
+      svg.appendChild(rectElement);
+    }
+  }
+
+  _getHighlightColor(color) {
+    if (!color || (!Array.isArray(color) && !(color instanceof Uint8ClampedArray)) || color.length < 3) {
+      // Default yellow color for highlights (same as Acrobat Reader)
+      return '#ffff00';
+    }
+    
+    // Use Util.makeHexColor which handles PDF color arrays properly
+    return Util.makeHexColor(color[0], color[1], color[2]);
+  }
+
+  show() {
+    super.show();
+    // Ensure the persistent highlight is visible
+    this._ensurePersistentHighlight();
+  }
+
+  hide() {
+    super.hide();
+    // Keep the persistent highlight visible even when annotation container is hidden
+  }
+
+  _ensurePersistentHighlight() {
+    const pageElement = this.parent.div.parentElement;
+    if (!pageElement) {
+      return;
+    }
+
+    const canvasWrapper = pageElement.querySelector('.canvasWrapper');
+    if (!canvasWrapper) {
+      return;
+    }
+
+    const existingSVG = canvasWrapper.querySelector(`svg.persistentHighlight[data-annotation-id="${this.data.id}"]`);
+    if (!existingSVG) {
+      // Recreate the persistent highlight if it was removed
+      this._createPersistentHighlight(pageElement);
+    }
   }
 }
 
