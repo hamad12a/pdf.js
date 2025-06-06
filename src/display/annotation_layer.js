@@ -2883,12 +2883,21 @@ class InkAnnotationElement extends AnnotationElement {
 }
 
 class HighlightAnnotationElement extends AnnotationElement {
+  // Static undo/redo stacks shared across all highlight instances
+  static undoStack = [];
+  static redoStack = [];
+  static maxUndoSize = 50; // Limit undo history
+  static keyboardListenerAdded = false;
+
   constructor(parameters) {
     super(parameters, {
       isRenderable: true,
       ignoreBorder: true,
       createQuadrilaterals: true,
     });
+    
+    // Add global keyboard listener once
+    this._addGlobalKeyboardListener();
   }
 
   render() {
@@ -2897,6 +2906,9 @@ class HighlightAnnotationElement extends AnnotationElement {
     }
 
     this.container.classList.add("highlightAnnotation");
+    
+    // Disable pointer events on the annotation container to allow SVG interaction
+    this.container.style.pointerEvents = 'none';
     
     // Register this highlight annotation with the page view for persistent rendering
     this._registerPersistentHighlight();
@@ -2949,9 +2961,10 @@ class HighlightAnnotationElement extends AnnotationElement {
 
     // Create SVG element for the visible highlight
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.setAttribute('aria-hidden', 'true');
     svg.classList.add('highlight', 'persistentHighlight');
     svg.setAttribute('data-annotation-id', this.data.id);
+    svg.setAttribute('role', 'button'); // Make it clear this is interactive
+    svg.setAttribute('aria-label', `Highlight annotation ${this.data.id}`); // Provide accessible label
     
     // Set fill and fill-opacity on the parent SVG from appearance data
     const fillColor = this._getHighlightColor(color);
@@ -2981,9 +2994,10 @@ class HighlightAnnotationElement extends AnnotationElement {
     svg.style.top = `${topPercentage}%`;
     svg.style.width = `${(100 * width) / pageWidth}%`;
     svg.style.height = `${(100 * height) / pageHeight}%`;
-    svg.style.pointerEvents = 'none';
+    svg.style.pointerEvents = 'auto'; // Enable pointer events for interaction
     svg.style.zIndex = '1';
     svg.style.mixBlendMode = 'multiply';
+    svg.style.cursor = 'pointer';
     
     // Set viewBox to use normalized coordinates
     svg.setAttribute('viewBox', '0 0 1 1');
@@ -2991,6 +3005,25 @@ class HighlightAnnotationElement extends AnnotationElement {
     
     // Create highlight rectangles from quadPoints
     this._createVisibleHighlightRects(quadPoints, rect, svg);
+
+    // Add click and keyboard interaction to the main SVG
+    svg.setAttribute('tabindex', '0'); // Make focusable for keyboard events
+    
+    // Add click handler for selection
+    svg.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this._selectHighlight(svg);
+    });
+    
+    // Add keyboard handler for deletion
+    svg.addEventListener('keydown', (e) => {
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        e.preventDefault();
+        e.stopPropagation();
+        this._deleteHighlight(svg, pageElement);
+      }
+    });
     
     // Ensure canvas always remains the first child of canvasWrapper
     this._ensureCanvasFirstChild(canvasWrapper);
@@ -3049,7 +3082,12 @@ class HighlightAnnotationElement extends AnnotationElement {
       rectElement.setAttribute('y', y);
       rectElement.setAttribute('width', rectWidth);
       rectElement.setAttribute('height', rectHeight);
-      // Fill and fill-opacity are now inherited from parent SVG
+      
+      // Make each rectangle fully interactive
+      rectElement.setAttribute('fill', 'inherit');
+      rectElement.setAttribute('fill-opacity', 'inherit');
+      rectElement.setAttribute('pointer-events', 'all');
+      rectElement.style.cursor = 'pointer';
       
       svg.appendChild(rectElement);
     }
@@ -3065,6 +3103,186 @@ class HighlightAnnotationElement extends AnnotationElement {
     return Util.makeHexColor(color[0], color[1], color[2]);
   }
 
+  _selectHighlight(svg) {
+    // Clear other selections first
+    this._clearAllHighlightSelections(svg.parentElement);
+    
+    // Add selection styling
+    svg.style.outline = '2px solid #0066cc';
+    svg.style.outlineOffset = '1px';
+    svg.classList.add('selected');
+    
+    // Focus the SVG for keyboard events
+    svg.focus();
+  }
+  
+  _deleteHighlight(svg, pageElement) {
+    const annotationId = svg.getAttribute('data-annotation-id');
+    
+    // Store undo information before deletion
+    const undoAction = {
+      type: 'delete',
+      annotationId: annotationId,
+      highlightData: pageElement._savedHighlights?.get(annotationId),
+      annotationElement: this,
+      pageElement: pageElement,
+      timestamp: Date.now()
+    };
+    
+    // Add to undo stack
+    HighlightAnnotationElement.undoStack.push(undoAction);
+    
+    // Limit undo stack size
+    if (HighlightAnnotationElement.undoStack.length > HighlightAnnotationElement.maxUndoSize) {
+      HighlightAnnotationElement.undoStack.shift();
+    }
+    
+    // Clear redo stack when new action is performed
+    HighlightAnnotationElement.redoStack = [];
+    
+    // Remove the SVG element
+    svg.remove();
+    
+    // Remove the annotation section element from DOM
+    const annotationElement = pageElement.querySelector(`section[data-annotation-id="${annotationId}"]`);
+    if (annotationElement) {
+      annotationElement.remove();
+    }
+    
+    // Remove from persistent storage so it won't be recreated
+    if (pageElement._savedHighlights) {
+      pageElement._savedHighlights.delete(annotationId);
+    }
+    
+    // Mark this annotation element as deleted to prevent recreation
+    this._isDeleted = true;
+  }
+  
+  _clearAllHighlightSelections(container) {
+    const selectedHighlights = container.querySelectorAll('svg.persistentHighlight.selected');
+    selectedHighlights.forEach(svg => {
+      svg.style.outline = '';
+      svg.style.outlineOffset = '';
+      svg.classList.remove('selected');
+    });
+  }
+
+  _clearAllHighlightSelectionsGlobally() {
+    // Clear selections across the entire document
+    const selectedHighlights = document.querySelectorAll('svg.persistentHighlight.selected');
+    selectedHighlights.forEach(svg => {
+      svg.style.outline = '';
+      svg.style.outlineOffset = '';
+      svg.classList.remove('selected');
+    });
+  }
+
+  _addGlobalKeyboardListener() {
+    // Add keyboard listener only once globally
+    if (HighlightAnnotationElement.keyboardListenerAdded) {
+      return;
+    }
+    
+    // Keyboard event listener for undo/redo
+    document.addEventListener('keydown', (e) => {
+      // Check for undo (Ctrl+Z)
+      if (e.ctrlKey && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        this._performUndo();
+      }
+      // Check for redo (Ctrl+Y or Ctrl+Shift+Z)
+      else if (e.ctrlKey && (e.key === 'y' || (e.key === 'Z' && e.shiftKey))) {
+        e.preventDefault();
+        e.stopPropagation();
+        this._performRedo();
+      }
+    });
+    
+    // Global click listener to unselect highlights when clicking elsewhere
+    document.addEventListener('click', (e) => {
+      // Don't unselect if clicking on a highlight SVG or its children
+      if (e.target.closest('svg.persistentHighlight')) {
+        return;
+      }
+      
+      // Unselect all highlights
+      this._clearAllHighlightSelectionsGlobally();
+    });
+    
+    HighlightAnnotationElement.keyboardListenerAdded = true;
+  }
+
+  _performUndo() {
+    const undoAction = HighlightAnnotationElement.undoStack.pop();
+    if (!undoAction) {
+      return; // Nothing to undo
+    }
+    
+    if (undoAction.type === 'delete') {
+      // Restore the deleted highlight
+      const { annotationId, highlightData, annotationElement, pageElement } = undoAction;
+      
+      // Add back to saved highlights
+      if (pageElement._savedHighlights && highlightData) {
+        pageElement._savedHighlights.set(annotationId, highlightData);
+      }
+      
+      // Unmark as deleted
+      if (annotationElement) {
+        annotationElement._isDeleted = false;
+      }
+      
+      // Recreate the highlight
+      if (annotationElement && typeof annotationElement._createPersistentHighlight === 'function') {
+        annotationElement._createPersistentHighlight(pageElement);
+      }
+      
+      // Add to redo stack
+      HighlightAnnotationElement.redoStack.push(undoAction);
+    }
+  }
+
+  _performRedo() {
+    const redoAction = HighlightAnnotationElement.redoStack.pop();
+    if (!redoAction) {
+      return; // Nothing to redo
+    }
+    
+    if (redoAction.type === 'delete') {
+      // Re-delete the highlight
+      const { annotationId, pageElement, annotationElement } = redoAction;
+      
+      // Find and remove the SVG
+      const canvasWrapper = pageElement.querySelector('.canvasWrapper');
+      if (canvasWrapper) {
+        const svg = canvasWrapper.querySelector(`svg.persistentHighlight[data-annotation-id="${annotationId}"]`);
+        if (svg) {
+          svg.remove();
+        }
+      }
+      
+      // Remove annotation section
+      const annotationSection = pageElement.querySelector(`section[data-annotation-id="${annotationId}"]`);
+      if (annotationSection) {
+        annotationSection.remove();
+      }
+      
+      // Remove from saved highlights
+      if (pageElement._savedHighlights) {
+        pageElement._savedHighlights.delete(annotationId);
+      }
+      
+      // Mark as deleted
+      if (annotationElement) {
+        annotationElement._isDeleted = true;
+      }
+      
+      // Add back to undo stack
+      HighlightAnnotationElement.undoStack.push(redoAction);
+    }
+  }
+
   show() {
     super.show();
     // Ensure the persistent highlight is visible
@@ -3077,6 +3295,11 @@ class HighlightAnnotationElement extends AnnotationElement {
   }
 
   _ensurePersistentHighlight() {
+    // Don't recreate if this annotation has been deleted
+    if (this._isDeleted) {
+      return;
+    }
+    
     const pageElement = this.parent.div.parentElement;
     if (!pageElement) {
       return;
@@ -3088,9 +3311,50 @@ class HighlightAnnotationElement extends AnnotationElement {
     }
 
     const existingSVG = canvasWrapper.querySelector(`svg.persistentHighlight[data-annotation-id="${this.data.id}"]`);
+    
     if (!existingSVG) {
-      // Recreate the persistent highlight if it was removed
+      // Check if it's in the saved highlights - if not, it was intentionally deleted
+      if (pageElement._savedHighlights && !pageElement._savedHighlights.has(this.data.id)) {
+        return;
+      }
+      
+      // Recreate the persistent highlight if it was removed unintentionally
       this._createPersistentHighlight(pageElement);
+    }
+  }
+
+  // Methods to control outline visibility for selection and editing
+  showOutline() {
+    const pageElement = this.parent.div.parentElement;
+    if (!pageElement) {
+      return;
+    }
+
+    const canvasWrapper = pageElement.querySelector('.canvasWrapper');
+    if (!canvasWrapper) {
+      return;
+    }
+
+    const outline = canvasWrapper.querySelector(`svg.persistentHighlightOutline[data-annotation-id="${this.data.id}"]`);
+    if (outline) {
+      outline.style.display = 'block';
+    }
+  }
+
+  hideOutline() {
+    const pageElement = this.parent.div.parentElement;
+    if (!pageElement) {
+      return;
+    }
+
+    const canvasWrapper = pageElement.querySelector('.canvasWrapper');
+    if (!canvasWrapper) {
+      return;
+    }
+
+    const outline = canvasWrapper.querySelector(`svg.persistentHighlightOutline[data-annotation-id="${this.data.id}"]`);
+    if (outline) {
+      outline.style.display = 'none';
     }
   }
 }
