@@ -53,6 +53,8 @@ class HighlightEditor extends AnnotationEditor {
 
   #isFreeHighlight = false;
 
+  #isDeserialized = false;
+
   #boundKeydown = this.#keydown.bind(this);
 
   #lastPoint = null;
@@ -85,6 +87,9 @@ class HighlightEditor extends AnnotationEditor {
 
   static _freeHighlightClipId = "";
 
+  // Global registry to prevent duplicate editor instances
+  static _editorRegistry = new Map();
+
   static get _keyboardManager() {
     const proto = HighlightEditor.prototype;
     return shadow(
@@ -99,8 +104,26 @@ class HighlightEditor extends AnnotationEditor {
     );
   }
 
+  static createOrGet(params) {
+    const annotationId = params.annotationElementId || params.id;
+    
+    // Check if an editor already exists for this annotation
+    if (annotationId && HighlightEditor._editorRegistry.has(annotationId)) {
+      const existing = HighlightEditor._editorRegistry.get(annotationId);
+      if (existing && existing !== 'creating') {
+        return existing;
+      }
+    }
+    
+    // Create new editor
+    return new HighlightEditor(params);
+  }
+
   constructor(params) {
     super({ ...params, name: "highlightEditor" });
+    
+    const annotationId = params.annotationElementId || params.id;
+    
     this.color = params.color || HighlightEditor._defaultColor;
     this.#thickness = params.thickness || HighlightEditor._defaultThickness;
     this.#opacity = params.opacity || HighlightEditor._defaultOpacity;
@@ -109,11 +132,17 @@ class HighlightEditor extends AnnotationEditor {
     this.#text = params.text || "";
     this._isDraggable = false;
 
+    // Store reference in registry
+    if (annotationId) {
+      HighlightEditor._editorRegistry.set(annotationId, this);
+    }
+
     if (params.highlightId > -1) {
       this.#isFreeHighlight = true;
       this.#createFreeOutlines(params);
       this.#addToDrawLayer();
-    } else {
+    } else if (params.anchorNode) {
+      // This is a new highlight created from text selection
       this.#anchorNode = params.anchorNode;
       this.#anchorOffset = params.anchorOffset;
       this.#focusNode = params.focusNode;
@@ -121,6 +150,11 @@ class HighlightEditor extends AnnotationEditor {
       this.#createOutlines();
       this.#addToDrawLayer();
       this.rotate(this.rotation);
+    } else {
+      // This is likely a deserialized highlight from saved PDF annotations
+      // DO NOT create SVG elements here - they should already exist from initial page rendering
+      // #createOutlines() will be called later in deserialize method, but NOT #addToDrawLayer()
+      this.#isDeserialized = true;
     }
   }
 
@@ -384,7 +418,7 @@ class HighlightEditor extends AnnotationEditor {
   /** @inheritdoc */
   disableEditing() {
     super.disableEditing();
-    this.div.classList.toggle("disabled", true);
+    // SVG highlights remain visible - no need to restore anything
   }
 
   /** @inheritdoc */
@@ -419,6 +453,21 @@ class HighlightEditor extends AnnotationEditor {
   /** @inheritdoc */
   remove() {
     this.#cleanDrawLayer();
+    
+    // Remove the SVG highlight from canvas wrapper when the editor is deleted
+    if (this.annotationElementId && this.parent) {
+      const pageElement = this.parent.div.parentElement;
+      if (pageElement) {
+        const canvasWrapper = pageElement.querySelector('.canvasWrapper');
+        if (canvasWrapper) {
+          const existingSVG = canvasWrapper.querySelector(`svg.highlight[data-annotation-id="${this.annotationElementId}"]`);
+          if (existingSVG) {
+            existingSVG.remove();
+          }
+        }
+      }
+    }
+    
     this._reportTelemetry({
       action: "deleted",
     });
@@ -447,9 +496,15 @@ class HighlightEditor extends AnnotationEditor {
   setParent(parent) {
     let mustBeSelected = false;
     if (this.parent && !parent) {
-      this.#cleanDrawLayer();
+      // Don't clean draw layer for deserialized highlights to prevent duplication
+      if (!this.#isDeserialized) {
+        this.#cleanDrawLayer();
+      }
     } else if (parent) {
-      this.#addToDrawLayer(parent);
+      // Only add to draw layer if not already added (prevents duplication)
+      if (this.#id === null) {
+        this.#addToDrawLayer(parent);
+      }
       // If mustBeSelected is true it means that this editor was selected
       // when its parent has been destroyed, hence we must select it again.
       mustBeSelected =
@@ -479,6 +534,22 @@ class HighlightEditor extends AnnotationEditor {
     if (this.#id === null || !this.parent) {
       return;
     }
+    
+    const annotationId = this.annotationElementId || this.id;
+    
+    // Clean up global tracking in both places
+    if (annotationId) {
+      // Only remove from registry if this is NOT a deserialized highlight
+      if (!this.#isDeserialized) {
+        HighlightEditor._editorRegistry.delete(annotationId);
+      }
+      
+      // Also clean up pageView tracking if available
+      if (this.parent && this.parent.pageView && this.parent.pageView._highlightEditors) {
+        this.parent.pageView._highlightEditors.delete(annotationId);
+      }
+    }
+    
     this.parent.drawLayer.remove(this.#id);
     this.#id = null;
     this.parent.drawLayer.remove(this.#outlineId);
@@ -489,6 +560,29 @@ class HighlightEditor extends AnnotationEditor {
     if (this.#id !== null) {
       return;
     }
+
+    // Ensure draw layer is available before creating SVG elements
+    if (!parent || !parent.drawLayer) {
+      return;
+    }
+    
+    const annotationId = this.annotationElementId || this.id;
+    
+    // For deserialized highlights, check if SVG elements already exist
+    if (this.#isDeserialized && annotationId && parent.drawLayer.div) {
+      const existingSvgs = parent.drawLayer.div.querySelectorAll(`[data-annotation-id="${annotationId}"]`);
+      if (existingSvgs.length >= 2) {
+        // SVG elements already exist for this annotation
+        return;
+      }
+    }
+
+    // Clean up any existing elements
+    if (this.#id !== null) {
+      this.#cleanDrawLayer();
+    }
+
+    // Create new SVG elements
     ({ id: this.#id, clipPathId: this.#clipPathId } =
       parent.drawLayer.highlight(
         this.#highlightOutlines,
@@ -496,6 +590,26 @@ class HighlightEditor extends AnnotationEditor {
         this.#opacity
       ));
     this.#outlineId = parent.drawLayer.highlightOutline(this.#focusOutlines);
+    
+    // Mark the created SVG elements with annotation ID
+    if (annotationId && parent.drawLayer.div && this.#id !== null && this.#outlineId !== null) {
+      const allSvgs = parent.drawLayer.div.querySelectorAll('svg');
+      
+      for (const svg of allSvgs) {
+        if (svg.classList.contains('highlight') && !svg.hasAttribute('data-annotation-id')) {
+          svg.setAttribute('data-annotation-id', annotationId);
+          break;
+        }
+      }
+      
+      for (const svg of allSvgs) {
+        if (svg.classList.contains('highlightOutline') && !svg.hasAttribute('data-annotation-id')) {
+          svg.setAttribute('data-annotation-id', annotationId);
+          break;
+        }
+      }
+    }
+    
     if (this.#highlightDiv) {
       this.#highlightDiv.style.clipPath = this.#clipPathId;
     }
@@ -655,8 +769,11 @@ class HighlightEditor extends AnnotationEditor {
   show(visible = this._isVisible) {
     super.show(visible);
     if (this.parent) {
-      this.parent.drawLayer.show(this.#id, visible);
-      this.parent.drawLayer.show(this.#outlineId, visible);
+      // For persistent/deserialized highlights, always keep the SVG visible
+      // Only hide SVG elements for non-persistent highlights
+      const keepSvgVisible = this.#isDeserialized || visible;
+      this.parent.drawLayer.show(this.#id, keepSvgVisible);
+      this.parent.drawLayer.show(this.#outlineId, keepSvgVisible);
     }
   }
 
@@ -670,9 +787,12 @@ class HighlightEditor extends AnnotationEditor {
     if (this.#isFreeHighlight) {
       return null;
     }
+    const boxes = this.#boxes;
+    if (!boxes || boxes.length === 0) {
+      return null;
+    }
     const [pageWidth, pageHeight] = this.pageDimensions;
     const [pageX, pageY] = this.pageTranslation;
-    const boxes = this.#boxes;
     const quadPoints = new Float32Array(boxes.length * 8);
     let i = 0;
     for (const { x, y, width, height } of boxes) {
@@ -772,31 +892,159 @@ class HighlightEditor extends AnnotationEditor {
 
   /** @inheritdoc */
   static deserialize(data, parent, uiManager) {
-    const editor = super.deserialize(data, parent, uiManager);
+    // Handle different data structures:
+    // 1. When called from annotation layer: data has id/annotationElementId
+    // 2. When called from editor layer during edit mode: data is annotation element with data.id
+    let annotationId = data.id || data.annotationElementId;
+    
+    // If it's an annotation element being passed, extract the ID from its data
+    if (!annotationId && data.data && data.data.id) {
+      annotationId = data.data.id;
+    }
+    
+    // If annotationId is still null, try the annotationType property path
+    if (!annotationId && data.annotationType) {
+      // This might be serialized editor data - check for other ID properties
+      annotationId = data._annotationElementId || data.annotationElementId;
+    }
+    
+    if (annotationId && HighlightEditor._editorRegistry.has(annotationId)) {
+      const existing = HighlightEditor._editorRegistry.get(annotationId);
+      if (existing && existing !== 'creating') {
+        return existing;
+      }
+    }
+    
+    // Additional check: if SVG elements already exist, don't create a new editor
+    const drawLayerExists = parent?.drawLayer?.div;
+    const existingSvgs = drawLayerExists ? parent.drawLayer.div.querySelectorAll(`[data-annotation-id="${annotationId}"]`) : [];
+    
+    if (drawLayerExists && existingSvgs.length >= 2) {
+      // Try to find an existing editor that might not be in the registry
+      const allEditors = parent?.annotationEditors || [];
+      for (const editor of allEditors) {
+        if (editor.annotationElementId === annotationId || editor.id === annotationId) {
+          return editor;
+        }
+      }
+      // If we can't find an existing editor, return null to prevent creation
+      return null;
+    }
+    
+    // Mark if SVGs already exist for this annotation (for the initialization method)
+    const svgsAlreadyExist = annotationId && parent?.drawLayer?.div?.querySelectorAll(`[data-annotation-id="${annotationId}"]`).length >= 2;
+    
+    // Normalize the data structure for the parent deserialize method
+    let normalizedData = data;
+    if (data.data && !data.rect && !data.color && !data.quadPoints) {
+      // This is an annotation element - extract the needed properties
+      normalizedData = {
+        ...data.data, // Include the original annotation data
+        rect: data.rect || data.data.rect,
+        color: data.color || data.data.color,
+        quadPoints: data.quadPoints || data.data.quadPoints,
+        opacity: data.opacity || data.data.opacity,
+        rotation: data.rotation || data.data.rotation,
+        annotationType: 14, // AnnotationEditorType.HIGHLIGHT
+        annotationEditorType: 14,
+        id: annotationId
+      };
+    }
+    
+    const editor = super.deserialize(normalizedData, parent, uiManager);
 
-    const {
-      rect: [blX, blY, trX, trY],
-      color,
-      quadPoints,
-    } = data;
+    // Handle different data structures for rect, color, and quadPoints
+    let rect, color, quadPoints;
+    
+    if (normalizedData.rect && normalizedData.color && normalizedData.quadPoints) {
+      rect = normalizedData.rect;
+      color = normalizedData.color;
+      quadPoints = normalizedData.quadPoints;
+    } else {
+      // Fallback
+      rect = [0, 0, 1, 1];
+      color = [255, 255, 153];
+      quadPoints = [];
+    }
+
+    const [blX, blY, trX, trY] = rect;
+    
     editor.color = Util.makeHexColor(...color);
-    editor.#opacity = data.opacity;
-
-    const [pageWidth, pageHeight] = editor.pageDimensions;
-    editor.width = (trX - blX) / pageWidth;
-    editor.height = (trY - blY) / pageHeight;
-    const boxes = (editor.#boxes = []);
+    
+    // Set the annotation element ID for proper tracking
+    editor.annotationElementId = annotationId;
+    
+    // Register with the correct annotation ID in the registry
+    if (annotationId) {
+      HighlightEditor._editorRegistry.set(annotationId, editor);
+    }
+    
+    // Initialize the editor with the deserialized data
+    editor.initializeFromDeserialization(normalizedData, blX, blY, trX, trY, quadPoints, svgsAlreadyExist);
+    
+    return editor;
+  }
+  
+  initializeFromDeserialization(data, blX, blY, trX, trY, quadPoints, hasSvgs = false) {
+    this.#opacity = data.opacity || HighlightEditor._defaultOpacity;
+    
+    // Store pageView reference for global tracking
+    if (data.pageView && this.parent) {
+      this.parent.pageView = data.pageView;
+    }
+    
+    // Get page dimensions to convert PDF coordinates to 0-1 normalized coordinates
+    const [pageWidth, pageHeight] = this.pageDimensions;
+    
+    // Apply the same coordinate transformation as getRectInCurrentCoords
+    // Transform quadPoints to match the coordinate system used by the editor
+    const boxes = [];
     for (let i = 0; i < quadPoints.length; i += 8) {
+      // QuadPoints format: [x1, y1, x2, y2, x3, y3, x4, y4]
+      // Apply the same Y-coordinate flip as getRectInCurrentCoords (rotation 0 case)
+      const x1 = quadPoints[i] / pageWidth;
+      const y1 = (pageHeight - quadPoints[i + 1]) / pageHeight;
+      const x2 = quadPoints[i + 2] / pageWidth;
+      const y2 = (pageHeight - quadPoints[i + 3]) / pageHeight;
+      const x3 = quadPoints[i + 4] / pageWidth;
+      const y3 = (pageHeight - quadPoints[i + 5]) / pageHeight;
+      const x4 = quadPoints[i + 6] / pageWidth;
+      const y4 = (pageHeight - quadPoints[i + 7]) / pageHeight;
+      
+      // Calculate the bounding box of this quad
+      const minX = Math.min(x1, x2, x3, x4);
+      const maxX = Math.max(x1, x2, x3, x4);
+      const minY = Math.min(y1, y2, y3, y4);
+      const maxY = Math.max(y1, y2, y3, y4);
+      
       boxes.push({
-        x: (quadPoints[4] - trX) / pageWidth,
-        y: (trY - (1 - quadPoints[i + 5])) / pageHeight,
-        width: (quadPoints[i + 2] - quadPoints[i]) / pageWidth,
-        height: (quadPoints[i + 5] - quadPoints[i + 1]) / pageHeight,
+        x: minX,
+        y: minY,
+        width: maxX - minX,
+        height: maxY - minY,
       });
     }
-    editor.#createOutlines();
-
-    return editor;
+    this.#boxes = boxes;
+    
+    // Create outlines for the editor
+    this.#createOutlines();
+    
+    // Set the annotation element ID for duplicate prevention
+    this.annotationElementId = data.data?.id || data.id;
+    
+    // Only create SVG elements if they don't already exist
+    // This prevents duplicate creation when edit mode is enabled
+    if (!hasSvgs) {
+      const annotationId = this.annotationElementId;
+      const existingSvgs = this.parent?.drawLayer?.div?.querySelectorAll(`[data-annotation-id="${annotationId}"]`);
+      
+      if (!existingSvgs || existingSvgs.length === 0) {
+        // No existing SVGs found, this is likely the initial creation
+        this.#addToDrawLayer();
+      }
+      // If existingSvgs.length > 0, SVGs already exist - don't create new ones
+    }
+    // If hasSvgs is true, definitely don't create new SVGs
   }
 
   /** @inheritdoc */

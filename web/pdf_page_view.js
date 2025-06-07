@@ -237,8 +237,6 @@ class PDFPageView {
         this.l10n.translate(this.div);
       }
     }
-    // Restore any persistent highlights now that canvasWrapper is available
-    this.#restorePersistentHighlights();
   }
 
   #addLayer(div, name) {
@@ -853,28 +851,29 @@ class PDFPageView {
     }
   }
 
-  #restorePersistentHighlights() {
-    // Restore any saved highlight annotations that were previously registered
-    if (!this.div._savedHighlights) {
-      return;
-    }
-
-    const canvasWrapper = this.div.querySelector('.canvasWrapper');
-    if (!canvasWrapper) {
-      return;
-    }
-
-    for (const [id, highlightData] of this.div._savedHighlights) {
-      // Check if the SVG is already present
-      const existingSVG = canvasWrapper.querySelector(`svg.persistentHighlight[data-annotation-id="${id}"]`);
-      if (existingSVG) {
-        continue; // Skip if already present
+  #ensureDeferredHighlightSVGs() {
+    // Process any pending highlight annotations now that draw layer is ready
+    if (this.div._pendingHighlights) {
+      for (const [id, highlightAnnotation] of this.div._pendingHighlights) {
+        try {
+          // Check if editor already exists to prevent duplicates
+          if (!this._highlightEditors) {
+            this._highlightEditors = new Map();
+          }
+          
+          if (this._highlightEditors.has(id)) {
+            continue;
+          }
+          
+          // Pass the pageView (this) and the UI manager to the annotation element
+          const { annotationEditorUIManager } = this.#layerProperties;
+          highlightAnnotation._createHighlightEditor(this, annotationEditorUIManager);
+        } catch (err) {
+          console.warn(`Failed to create highlight editor for annotation ${id}:`, err);
+        }
       }
-
-      // Recreate the persistent highlight SVG
-      if (highlightData.annotationElement) {
-        highlightData.annotationElement._createPersistentHighlight(this.div);
-      }
+      // Clear the pending highlights
+      this.div._pendingHighlights.clear();
     }
   }
 
@@ -943,9 +942,6 @@ class PDFPageView {
     const canvasWrapper = document.createElement("div");
     canvasWrapper.classList.add("canvasWrapper");
     this.#addLayer(canvasWrapper, "canvasWrapper");
-    
-    // Restore any persistent highlights now that canvasWrapper is available
-    this.#restorePersistentHighlights();
 
     if (
       !this.textLayer &&
@@ -1132,6 +1128,9 @@ class PDFPageView {
           });
         }
         this.#renderAnnotationEditorLayer();
+        
+        // Ensure any deferred highlight SVG elements are created now that draw layer is ready
+        this.#ensureDeferredHighlightSVGs();
       },
       error => {
         // When zooming with a `drawingDelay` set, avoid temporarily showing
