@@ -1330,8 +1330,13 @@ class AnnotationEditor {
    */
   rebuild() {
     const signal = this._uiManager._signal;
-    this.div?.addEventListener("focusin", this.#boundFocusin, { signal });
-    this.div?.addEventListener("focusout", this.#boundFocusout, { signal });
+    if (signal) {
+      this.div?.addEventListener("focusin", this.#boundFocusin, { signal });
+      this.div?.addEventListener("focusout", this.#boundFocusout, { signal });
+    } else {
+      this.div?.addEventListener("focusin", this.#boundFocusin);
+      this.div?.addEventListener("focusout", this.#boundFocusout);
+    }
   }
 
   /**
@@ -1758,7 +1763,9 @@ class AnnotationEditor {
    * @param {boolean|undefined} visible
    */
   show(visible = this._isVisible) {
-    this.div.classList.toggle("hidden", !visible);
+    if (this.div) {
+      this.div.classList.toggle("hidden", !visible);
+    }
     this._isVisible = visible;
   }
 

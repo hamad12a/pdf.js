@@ -2966,6 +2966,20 @@ class HighlightAnnotationElement extends AnnotationElement {
   }
 
   render() {
+    // Check if this annotation has been marked as deleted
+    // First check UI manager (for current session)
+    if (this.parent._annotationEditorUIManager?.isDeletedAnnotationElement(this.data.id)) {
+      return null;
+    }
+    
+    // Also check annotation storage directly (for persistent deletion info)
+    if (this.annotationStorage) {
+      const storedData = this.annotationStorage.getRawValue(this.data.id);
+      if (storedData && storedData.deleted) {
+        return null;
+      }
+    }
+
     if (!this.data.popupRef && this.hasPopupData) {
       this._createPopup();
     }
@@ -3724,6 +3738,10 @@ class AnnotationLayer {
       }
 
       const rendered = element.render();
+      if (!rendered) {
+        // Skip deleted annotations
+        continue;
+      }
       if (data.hidden) {
         rendered.style.visibility = "hidden";
       }

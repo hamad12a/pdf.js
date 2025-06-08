@@ -568,16 +568,38 @@ class HighlightEditor extends AnnotationEditor {
     
     const annotationId = this.annotationElementId || this.id;
     
-    // For deserialized highlights, check if SVG elements already exist
-    if (this.#isDeserialized && annotationId && parent.drawLayer.div) {
+    // Check if SVG elements already exist for this annotation
+    if (annotationId && parent.drawLayer.div) {
       const existingSvgs = parent.drawLayer.div.querySelectorAll(`[data-annotation-id="${annotationId}"]`);
       if (existingSvgs.length >= 2) {
-        // SVG elements already exist for this annotation
-        return;
+        
+        // For deserialized highlights, try to reuse existing SVGs instead of creating new ones
+        if (this.#isDeserialized) {
+          // Try to extract the IDs from existing SVGs
+          const highlightSvg = Array.from(existingSvgs).find(svg => svg.classList.contains('highlight'));
+          const outlineSvg = Array.from(existingSvgs).find(svg => svg.classList.contains('highlightOutline'));
+          
+          if (highlightSvg && outlineSvg) {
+            // Extract the IDs from the existing SVGs
+            this.#id = highlightSvg.id || `highlight_${annotationId}`;
+            this.#outlineId = outlineSvg.id || `outline_${annotationId}`;
+            
+            // Extract clipPath ID if available
+            const clipPath = highlightSvg.querySelector('defs clipPath');
+            if (clipPath) {
+              this.#clipPathId = `url(#${clipPath.id})`;
+            }
+            
+            return;
+          }
+        }
+        
+        // Remove existing SVGs before creating new ones to avoid duplicates
+        existingSvgs.forEach(svg => svg.remove());
       }
     }
 
-    // Clean up any existing elements
+    // Clean up any existing elements (in case the check above missed something)
     if (this.#id !== null) {
       this.#cleanDrawLayer();
     }
@@ -767,7 +789,10 @@ class HighlightEditor extends AnnotationEditor {
 
   /** @inheritdoc */
   show(visible = this._isVisible) {
-    super.show(visible);
+    // Only call super.show if div has been created
+    if (this.div) {
+      super.show(visible);
+    }
     if (this.parent) {
       // For persistent/deserialized highlights, always keep the SVG visible
       // Only hide SVG elements for non-persistent highlights
@@ -910,8 +935,18 @@ class HighlightEditor extends AnnotationEditor {
     
     if (annotationId && HighlightEditor._editorRegistry.has(annotationId)) {
       const existing = HighlightEditor._editorRegistry.get(annotationId);
+      
       if (existing && existing !== 'creating') {
-        return existing;
+        // Check if the existing editor is properly initialized
+        if (!existing.div || !existing.isAttachedToDOM) {
+          // Remove the broken editor from registry and let a new one be created
+          HighlightEditor._editorRegistry.delete(annotationId);
+          
+          // Continue with creating a new editor below
+        } else {
+          // Editor is properly initialized, return it
+          return existing;
+        }
       }
     }
     
@@ -920,15 +955,8 @@ class HighlightEditor extends AnnotationEditor {
     const existingSvgs = drawLayerExists ? parent.drawLayer.div.querySelectorAll(`[data-annotation-id="${annotationId}"]`) : [];
     
     if (drawLayerExists && existingSvgs.length >= 2) {
-      // Try to find an existing editor that might not be in the registry
-      const allEditors = parent?.annotationEditors || [];
-      for (const editor of allEditors) {
-        if (editor.annotationElementId === annotationId || editor.id === annotationId) {
-          return editor;
-        }
-      }
-      // If we can't find an existing editor, return null to prevent creation
-      return null;
+      // SVGs exist but no valid editor - we'll create a new editor that can manage them
+      // The #addToDrawLayer method will handle cleanup of existing SVGs
     }
     
     // Mark if SVGs already exist for this annotation (for the initialization method)

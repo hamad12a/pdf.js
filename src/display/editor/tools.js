@@ -805,6 +805,7 @@ class AnnotationEditorUIManager {
     this.#addDragAndDropListeners();
     this.#addKeyboardManager();
     this.#annotationStorage = pdfDocument.annotationStorage;
+    this.#restoreDeletedAnnotations();
     this.#filterFactory = pdfDocument.filterFactory;
     this.#pageColors = pageColors;
     this.#highlightColors = highlightColors || null;
@@ -1085,6 +1086,29 @@ class AnnotationEditorUIManager {
       !this.#annotationStorage.has(editor.id)
     ) {
       this.#annotationStorage.setValue(editor.id, editor);
+    }
+  }
+
+  /**
+   * Restore deleted annotation IDs from annotation storage.
+   * This ensures that deleted annotations remain hidden when the PDF is reopened.
+   */
+  #restoreDeletedAnnotations() {
+    if (!this.#annotationStorage) {
+      return;
+    }
+    
+    // Get all stored values to find deleted annotations
+    const allValues = this.#annotationStorage.getAll();
+    if (!allValues) {
+      return;
+    }
+    
+    // Iterate over all stored values to find deleted annotations
+    for (const value of Object.values(allValues)) {
+      if (value && value.deleted === true && value.annotationElementId) {
+        this.#deletedAnnotationsElementIds.add(value.annotationElementId);
+      }
     }
   }
 
