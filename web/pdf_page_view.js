@@ -852,32 +852,44 @@ class PDFPageView {
   }
 
   #ensureDeferredHighlightSVGs() {
+    console.log('#ensureDeferredHighlightSVGs() called');
     // Process any pending highlight annotations now that draw layer is ready
     if (this.div._pendingHighlights) {
+      console.log(`Found ${this.div._pendingHighlights.size} pending highlights`);
       for (const [id, highlightAnnotation] of this.div._pendingHighlights) {
+        console.log(`Processing pending highlight ${id}`);
         try {
+          // Check if this annotation has been deleted
+          const { annotationEditorUIManager } = this.#layerProperties;
+          if (annotationEditorUIManager && annotationEditorUIManager.isDeletedAnnotationElement(id)) {
+            console.log(`#ensureDeferredHighlightSVGs: Skipping deleted annotation ${id}`);
+            continue;
+          }
+          
           // Check if editor already exists to prevent duplicates
           if (!this._highlightEditors) {
             this._highlightEditors = new Map();
           }
           
           if (this._highlightEditors.has(id)) {
+            console.log(`Editor already exists for ${id}, skipping`);
             continue;
           }
           
           // Additional check: if SVGs already exist for this annotation, skip creation
           // This handles the case where editor layer has already processed this annotation
-          const { annotationEditorUIManager } = this.#layerProperties;
           if (annotationEditorUIManager && this.drawLayer) {
             const existingHighlightId = this.drawLayer.getDrawLayer().findByAnnotationId(id, 'highlight');
             const existingOutlineId = this.drawLayer.getDrawLayer().findByAnnotationId(id, 'highlightOutline');
             
             if (existingHighlightId !== null && existingOutlineId !== null) {
               // SVGs already exist, skip this annotation
+              console.log(`SVGs already exist for ${id}, skipping`);
               continue;
             }
           }
           
+          console.log(`Creating highlight editor for ${id}`);
           // Pass the pageView (this) and the UI manager to the annotation element
           highlightAnnotation._createHighlightEditor(this, annotationEditorUIManager);
         } catch (err) {
@@ -886,6 +898,9 @@ class PDFPageView {
       }
       // Clear the pending highlights
       this.div._pendingHighlights.clear();
+      console.log('Cleared pending highlights');
+    } else {
+      console.log('No pending highlights found');
     }
   }
 

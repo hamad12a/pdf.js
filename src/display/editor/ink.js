@@ -1192,6 +1192,15 @@ class InkEditor extends AnnotationEditor {
       return null;
     }
 
+    // Don't serialize deleted annotations
+    if (this.deleted) {
+      return {
+        pageIndex: this.pageIndex,
+        id: this.annotationElementId,
+        deleted: true,
+      };
+    }
+
     const rect = this.getRect(0, 0);
     const color = AnnotationEditor._colorManager.convert(this.ctx.strokeStyle);
 

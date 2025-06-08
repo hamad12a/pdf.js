@@ -1112,6 +1112,54 @@ class AnnotationEditorUIManager {
     }
   }
 
+  /**
+   * Clean up any SVG elements for deleted annotations.
+   * This is called when exiting edit mode to ensure deleted annotations
+   * don't have any visual remnants in the DOM.
+   * @private
+   */
+  #cleanupDeletedAnnotationSVGs() {
+    console.log('#cleanupDeletedAnnotationSVGs called');
+    
+    if (this.#deletedAnnotationsElementIds.size === 0) {
+      console.log('No deleted annotations to clean up');
+      return;
+    }
+    
+    console.log('Deleted annotation IDs to clean up:', Array.from(this.#deletedAnnotationsElementIds));
+    
+    // Iterate through all layers to find and remove SVG elements for deleted annotations
+    for (const layer of this.#allLayers.values()) {
+      if (!layer || !layer.pageView || !layer.pageView.div) {
+        continue;
+      }
+      
+      // Find the canvasWrapper for this page
+      const canvasWrapper = layer.pageView.div.querySelector('.canvasWrapper');
+      if (!canvasWrapper) {
+        continue;
+      }
+      
+      console.log(`Checking page ${layer.pageIndex} for deleted annotation SVGs`);
+      
+      // Remove SVG elements for each deleted annotation
+      for (const deletedId of this.#deletedAnnotationsElementIds) {
+        const svgElements = canvasWrapper.querySelectorAll(`svg[data-annotation-id="${deletedId}"]`);
+        if (svgElements.length > 0) {
+          console.log(`Found ${svgElements.length} SVG elements to remove for deleted annotation ${deletedId} on page ${layer.pageIndex}`);
+          svgElements.forEach((svg, index) => {
+            console.log(`Removing SVG element ${index + 1} for deleted annotation ${deletedId}:`, svg);
+            svg.remove();
+          });
+          
+          // Verify removal
+          const remainingSvgs = canvasWrapper.querySelectorAll(`svg[data-annotation-id="${deletedId}"]`);
+          console.log(`SVG elements remaining for ${deletedId} on page ${layer.pageIndex}: ${remainingSvgs.length}`);
+        }
+      }
+    }
+  }
+
   #selectionChange() {
     const selection = document.getSelection();
     if (!selection || selection.isCollapsed) {
@@ -1531,6 +1579,22 @@ class AnnotationEditorUIManager {
         isEditing: false,
       });
       this.disableUserSelect(false);
+      
+      // Clean up any SVG elements for deleted annotations
+      this.#cleanupDeletedAnnotationSVGs();
+      
+      // Also schedule delayed cleanups to handle re-rendering
+      // Run cleanup after the current execution stack completes
+      setTimeout(() => {
+        console.log('Running delayed cleanup (immediate)');
+        this.#cleanupDeletedAnnotationSVGs();
+      }, 0);
+      
+      // Run cleanup after a short delay to catch any async re-rendering
+      setTimeout(() => {
+        console.log('Running delayed cleanup (100ms)');
+        this.#cleanupDeletedAnnotationSVGs();
+      }, 100);
     }
   }
 
@@ -1813,9 +1877,17 @@ class AnnotationEditorUIManager {
    * @param {AnnotationEditor} editor
    */
   addDeletedAnnotationElement(editor) {
+    console.log('addDeletedAnnotationElement called:', {
+      editorId: editor.id,
+      annotationElementId: editor.annotationElementId
+    });
     this.#deletedAnnotationsElementIds.add(editor.annotationElementId);
     this.addChangedExistingAnnotation(editor);
     editor.deleted = true;
+    console.log('Added to deleted set:', {
+      annotationElementId: editor.annotationElementId,
+      deletedIds: Array.from(this.#deletedAnnotationsElementIds)
+    });
   }
 
   /**
@@ -1824,7 +1896,13 @@ class AnnotationEditorUIManager {
    * @returns {boolean}
    */
   isDeletedAnnotationElement(annotationElementId) {
-    return this.#deletedAnnotationsElementIds.has(annotationElementId);
+    const isDeleted = this.#deletedAnnotationsElementIds.has(annotationElementId);
+    console.log('isDeletedAnnotationElement check:', {
+      annotationElementId,
+      isDeleted,
+      deletedIds: Array.from(this.#deletedAnnotationsElementIds)
+    });
+    return isDeleted;
   }
 
   /**

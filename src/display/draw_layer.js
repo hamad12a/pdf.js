@@ -87,6 +87,15 @@ class DrawLayer {
   }
 
   highlight(outlines, color, opacity, isPathUpdatable = false, annotationId = null) {
+    console.log('DrawLayer.highlight() called with annotationId:', annotationId);
+    console.log('Stack trace:', new Error().stack);
+    
+    // Check if annotation is deleted before creating SVG
+    if (annotationId && this.#parent?.annotationEditorUIManager?.isDeletedAnnotationElement?.(annotationId)) {
+      console.log(`DrawLayer: Not creating highlight SVG for deleted annotation ${annotationId}`);
+      return null;
+    }
+    
     // Check for existing highlight with same content
     if (annotationId) {
       const existingId = this.findExistingHighlight(outlines, color, opacity);
@@ -142,6 +151,12 @@ class DrawLayer {
   }
 
   highlightOutline(outlines, annotationId = null) {
+    // Check if annotation is deleted before creating SVG
+    if (annotationId && this.#parent?.annotationEditorUIManager?.isDeletedAnnotationElement?.(annotationId)) {
+      console.log(`DrawLayer: Not creating highlight outline SVG for deleted annotation ${annotationId}`);
+      return null;
+    }
+    
     // Check for existing highlight outline with same content
     if (annotationId) {
       const existingId = this.findExistingHighlightOutline(outlines);
@@ -243,39 +258,63 @@ class DrawLayer {
   }
 
   updateBox(id, box) {
-    DrawLayer.#setBox(this.#mapping.get(id), box);
+    const element = this.#mapping.get(id);
+    if (element) {
+      DrawLayer.#setBox(element, box);
+    }
   }
 
   show(id, visible) {
-    this.#mapping.get(id).classList.toggle("hidden", !visible);
+    const element = this.#mapping.get(id);
+    if (element && element.classList) {
+      element.classList.toggle("hidden", !visible);
+    }
   }
 
   rotate(id, angle) {
-    this.#mapping.get(id).setAttribute("data-main-rotation", angle);
+    const element = this.#mapping.get(id);
+    if (element) {
+      element.setAttribute("data-main-rotation", angle);
+    }
   }
 
   changeColor(id, color) {
-    this.#mapping.get(id).setAttribute("fill", color);
+    const element = this.#mapping.get(id);
+    if (element) {
+      element.setAttribute("fill", color);
+    }
   }
 
   changeOpacity(id, opacity) {
-    this.#mapping.get(id).setAttribute("fill-opacity", opacity);
+    const element = this.#mapping.get(id);
+    if (element) {
+      element.setAttribute("fill-opacity", opacity);
+    }
   }
 
   addClass(id, className) {
-    this.#mapping.get(id).classList.add(className);
+    const element = this.#mapping.get(id);
+    if (element && element.classList) {
+      element.classList.add(className);
+    }
   }
 
   removeClass(id, className) {
-    this.#mapping.get(id).classList.remove(className);
+    const element = this.#mapping.get(id);
+    if (element && element.classList) {
+      element.classList.remove(className);
+    }
   }
 
   remove(id) {
     if (this.#parent === null) {
       return;
     }
-    this.#mapping.get(id).remove();
-    this.#mapping.delete(id);
+    const element = this.#mapping.get(id);
+    if (element) {
+      element.remove();
+      this.#mapping.delete(id);
+    }
   }
 
   destroy() {

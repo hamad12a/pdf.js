@@ -2946,9 +2946,12 @@ class HighlightAnnotationElement extends AnnotationElement {
   }
 
   render() {
+    console.log('HighlightAnnotationElement.render() called for annotation', this.data.id);
+    
     // Check if this annotation has been marked as deleted
     // First check UI manager (for current session)
     if (this.parent._annotationEditorUIManager?.isDeletedAnnotationElement(this.data.id)) {
+      console.log('Annotation', this.data.id, 'is marked as deleted in UI manager - not rendering');
       return null;
     }
     
@@ -2956,9 +2959,12 @@ class HighlightAnnotationElement extends AnnotationElement {
     if (this.annotationStorage) {
       const storedData = this.annotationStorage.getRawValue(this.data.id);
       if (storedData && storedData.deleted) {
+        console.log('Annotation', this.data.id, 'is marked as deleted in storage - not rendering');
         return null;
       }
     }
+
+    console.log('Annotation', this.data.id, 'is NOT deleted - proceeding with render');
 
     if (!this.data.popupRef && this.hasPopupData) {
       this._createPopup();
@@ -2996,14 +3002,24 @@ class HighlightAnnotationElement extends AnnotationElement {
   }
 
   _createHighlightEditor(pageView = null, uiManager = null) {
+    console.log(`_createHighlightEditor called for annotation ${this.data.id}`);
+    
     // Only create highlight editors if we have a valid uiManager
     // This prevents automatic editor creation during PDF loading
     if (!uiManager) {
+      console.log(`No uiManager provided for ${this.data.id}, skipping`);
+      return;
+    }
+    
+    // Check if this annotation has been deleted - if so, don't create editor
+    if (uiManager.isDeletedAnnotationElement && uiManager.isDeletedAnnotationElement(this.data.id)) {
+      console.log(`_createHighlightEditor: Skipping deleted annotation ${this.data.id}`);
       return;
     }
     
     // Prevent infinite recursion by checking if editor already exists
     if (this._highlightEditor || this._creatingHighlightEditor) {
+      console.log(`Editor already exists or being created for ${this.data.id}, skipping`);
       return;
     }
     
@@ -3122,6 +3138,12 @@ class HighlightAnnotationElement extends AnnotationElement {
     // Dynamically import and create HighlightEditor
     import("./editor/highlight.js").then(({ HighlightEditor }) => {
       try {
+        // Check if this annotation has been deleted before deserializing
+        if (uiManager?.isDeletedAnnotationElement?.(this.data.id)) {
+          console.log(`Not deserializing deleted highlight annotation ${this.data.id}`);
+          return;
+        }
+        
         const editor = HighlightEditor.deserialize(
           editorData,
           editorLayer,

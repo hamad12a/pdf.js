@@ -177,6 +177,11 @@ class HighlightEditor extends AnnotationEditor {
       // This is likely a deserialized highlight from saved PDF annotations
       // SVG elements should be created later in the deserialization process
       this.#isDeserialized = true;
+      
+      // For saved annotations, try to connect to existing SVGs immediately if possible
+      if (this.parent && this.parent.drawLayer && this.annotationElementId) {
+        this.#connectToExistingSvgs();
+      }
     }
   }
 
@@ -476,6 +481,18 @@ class HighlightEditor extends AnnotationEditor {
   remove() {
     const annotationId = this.annotationElementId || this.id;
     
+    console.log('HighlightEditor.remove() called', {
+      annotationId,
+      annotationElementId: this.annotationElementId,
+      id: this.id,
+      deletedBefore: this.deleted
+    });
+    
+    // Capture DOM references before any cleanup
+    const pageView = this.parent?.pageView;
+    const annotationLayer = pageView?.annotationLayer;
+    const canvasWrapper = pageView?.div?.querySelector('.canvasWrapper');
+    
     // Clean up global tracking
     if (annotationId) {
       HighlightEditor._editorRegistry.delete(annotationId);
@@ -485,20 +502,140 @@ class HighlightEditor extends AnnotationEditor {
       }
     }
 
-    // For deserialized highlights, we may want to keep the SVG elements
-    // but remove the editor wrapper when exiting edit mode
-    if (this.#isDeserialized && this.parent) {
-      // Don't clean the draw layer - SVGs should remain for annotation layer
-      this.#id = null;
-      this.#outlineId = null;
-    } else {
-      // For user-created highlights, clean up everything
-      if (!this.#isDeserialized) {
-        this.#cleanDrawLayer();
-      }
+    // First, remove ALL DOM elements immediately while we have references
+    if (annotationId && (annotationLayer || canvasWrapper)) {
+      console.log('Removing DOM elements immediately for', annotationId);
+      this.#removeAnnotationElementsWithRefs(annotationId, annotationLayer, canvasWrapper);
     }
     
+    // Clean up draw layer SVG elements
+    this.#cleanDrawLayer();
+    
+    // Call parent remove (which may set this.deleted = true in detach())
     super.remove();
+    
+    console.log('HighlightEditor.remove() completed', {
+      annotationId,
+      deletedAfter: this.deleted
+    });
+  }
+
+  /**
+   * Remove annotation elements from the annotation layer DOM
+   * @private
+   */
+  #removeAnnotationElements(annotationId) {
+    console.log('#removeAnnotationElements called with', annotationId);
+    
+    if (!this.parent || !this.parent.pageView) {
+      console.log('No parent or pageView, returning');
+      return;
+    }
+
+    // Find and remove annotation elements from the annotation layer
+    const annotationLayer = this.parent.pageView.annotationLayer;
+    if (annotationLayer && annotationLayer.div) {
+      // Remove annotation element with this ID
+      const annotationElement = annotationLayer.div.querySelector(`[data-annotation-id="${annotationId}"]`);
+      if (annotationElement) {
+        annotationElement.remove();
+        console.log(`Removed annotation element ${annotationId} from annotation layer`);
+      } else {
+        console.log(`No annotation element found with ID ${annotationId}`);
+      }
+    } else {
+      console.log('No annotation layer found');
+    }
+
+    // Also remove from canvasWrapper if there are any SVG elements
+    const canvasWrapper = this.parent.pageView.div.querySelector('.canvasWrapper');
+    if (canvasWrapper) {
+      // Remove SVG elements with this annotation ID
+      const svgElements = canvasWrapper.querySelectorAll(`[data-annotation-id="${annotationId}"]`);
+      console.log(`Found ${svgElements.length} SVG elements to remove`);
+      svgElements.forEach(svg => {
+        svg.remove();
+        console.log(`Removed SVG element ${annotationId} from canvas wrapper`);
+      });
+    } else {
+      console.log('No canvas wrapper found');
+    }
+  }
+
+  /**
+   * Remove annotation elements from the annotation layer DOM using pre-captured references
+   * @private
+   */
+  #removeAnnotationElementsWithRefs(annotationId, annotationLayer, canvasWrapper) {
+    console.log('#removeAnnotationElementsWithRefs called with', {
+      annotationId,
+      hasAnnotationLayer: !!annotationLayer,
+      hasCanvasWrapper: !!canvasWrapper
+    });
+    
+    // Remove annotation elements from the annotation layer
+    if (annotationLayer && annotationLayer.div) {
+      const annotationElement = annotationLayer.div.querySelector(`[data-annotation-id="${annotationId}"]`);
+      console.log('Found annotation element in annotation layer:', !!annotationElement);
+      if (annotationElement) {
+        console.log('Removing annotation element from annotation layer:', annotationElement);
+        annotationElement.remove();
+        console.log(`Removed annotation element ${annotationId} from annotation layer`);
+        
+        // Verify it's actually removed
+        const stillExists = annotationLayer.div.querySelector(`[data-annotation-id="${annotationId}"]`);
+        console.log('Annotation element still exists after removal:', !!stillExists);
+      } else {
+        console.log(`No annotation element found with ID ${annotationId}`);
+      }
+    } else {
+      console.log('No annotation layer available');
+    }
+
+    // Remove SVG elements from canvasWrapper
+    if (canvasWrapper) {
+      console.log('CanvasWrapper HTML before removal:', canvasWrapper.innerHTML);
+      
+      const svgElements = canvasWrapper.querySelectorAll(`[data-annotation-id="${annotationId}"]`);
+      console.log(`Found ${svgElements.length} SVG elements to remove in canvasWrapper`);
+      
+      // Try multiple approaches to remove SVG elements
+      svgElements.forEach((svg, index) => {
+        console.log(`Removing SVG element ${index + 1}:`, svg);
+        console.log('SVG parent:', svg.parentNode);
+        console.log('SVG is connected:', svg.isConnected);
+        
+        // Try different removal methods
+        try {
+          svg.remove();
+          console.log(`Called svg.remove() for element ${index + 1}`);
+        } catch (e) {
+          console.error('Error calling svg.remove():', e);
+        }
+        
+        // Alternative removal method
+        if (svg.parentNode) {
+          try {
+            svg.parentNode.removeChild(svg);
+            console.log(`Called parentNode.removeChild() for element ${index + 1}`);
+          } catch (e) {
+            console.error('Error calling parentNode.removeChild():', e);
+          }
+        }
+      });
+      
+      // Verify SVG elements are actually removed
+      const stillExistsSvg = canvasWrapper.querySelectorAll(`[data-annotation-id="${annotationId}"]`);
+      console.log(`SVG elements still exist after removal: ${stillExistsSvg.length}`);
+      if (stillExistsSvg.length > 0) {
+        console.log('Remaining SVG elements:', stillExistsSvg);
+        console.log('CanvasWrapper HTML after failed removal:', canvasWrapper.innerHTML);
+      } else {
+        console.log('All SVG elements successfully removed');
+      }
+    } else {
+      console.log('No canvas wrapper available');
+    }
   }
 
   /** @inheritdoc */
@@ -509,6 +646,11 @@ class HighlightEditor extends AnnotationEditor {
     super.rebuild();
     if (this.div === null) {
       return;
+    }
+
+    // For deserialized highlights, try to connect to existing SVGs first
+    if (this.#isDeserialized && this.#id === null && this.annotationElementId) {
+      this.#connectToExistingSvgs();
     }
 
     this.#addToDrawLayer();
@@ -528,6 +670,11 @@ class HighlightEditor extends AnnotationEditor {
         this.#cleanDrawLayer();
       }
     } else if (parent) {
+      // For deserialized highlights, try to connect to existing SVGs first
+      if (this.#isDeserialized && this.#id === null && this.annotationElementId) {
+        this.#connectToExistingSvgs();
+      }
+      
       // Only add to draw layer if not already added (prevents duplication)
       if (this.#id === null) {
         this.#addToDrawLayer(parent);
@@ -601,6 +748,13 @@ class HighlightEditor extends AnnotationEditor {
     
     const annotationId = this.annotationElementId || this.id;
     
+    // Check if this annotation has been deleted - if so, don't create SVG elements
+    if (annotationId && this.parent?.annotationEditorLayer && 
+        this.parent.annotationEditorLayer.isDeletedAnnotationElement(annotationId)) {
+      console.log(`#addToDrawLayer: Skipping SVG creation for deleted annotation ${annotationId}`);
+      return;
+    }
+    
     // Check if SVG elements already exist for this annotation
     if (annotationId) {
       // First, check if we already have mapped SVG elements for this annotation
@@ -661,6 +815,38 @@ class HighlightEditor extends AnnotationEditor {
   // Helper method to mark SVG with annotation ID
   #markSvgWithAnnotationId(drawLayer, svgId, annotationId) {
     drawLayer.setAnnotationId(svgId, annotationId);
+  }
+
+  // Helper method to connect to existing SVGs for saved annotations
+  #connectToExistingSvgs() {
+    if (!this.parent || !this.parent.drawLayer || !this.annotationElementId) {
+      return;
+    }
+
+    // Look for existing SVGs with this annotation ID
+    const existingHighlightId = this.parent.drawLayer.findByAnnotationId(this.annotationElementId, 'highlight');
+    const existingOutlineId = this.parent.drawLayer.findByAnnotationId(this.annotationElementId, 'highlightOutline');
+
+    if (existingHighlightId !== null) {
+      this.#id = existingHighlightId;
+      const existingSvg = this.parent.drawLayer.getSvgElement(existingHighlightId);
+      if (existingSvg) {
+        // Extract clip path from existing SVG
+        const clipPathAttr = existingSvg.style.clipPath || existingSvg.getAttribute('clip-path');
+        if (clipPathAttr) {
+          this.#clipPathId = clipPathAttr;
+        }
+      }
+    }
+
+    if (existingOutlineId !== null) {
+      this.#outlineId = existingOutlineId;
+    }
+
+    // If we found existing SVGs, create outlines to match
+    if ((existingHighlightId !== null || existingOutlineId !== null) && this.#boxes) {
+      this.#createOutlines();
+    }
   }
 
   static #rotateBbox({ x, y, width, height }, angle) {
@@ -749,11 +935,22 @@ class HighlightEditor extends AnnotationEditor {
   }
 
   pointerover() {
-    this.parent.drawLayer.addClass(this.#outlineId, "hovered");
+    if (!this.#outlineId) {
+      // If no outline ID, try to create the outline SVG
+      if (this.parent && this.parent.drawLayer && this.#focusOutlines) {
+        const annotationId = this.annotationElementId || this.id;
+        this.#outlineId = this.parent.drawLayer.highlightOutline(this.#focusOutlines, annotationId);
+      }
+    }
+    if (this.#outlineId) {
+      this.parent.drawLayer.addClass(this.#outlineId, "hovered");
+    }
   }
 
   pointerleave() {
-    this.parent.drawLayer.removeClass(this.#outlineId, "hovered");
+    if (this.#outlineId) {
+      this.parent.drawLayer.removeClass(this.#outlineId, "hovered");
+    }
   }
 
   #keydown(event) {
@@ -790,10 +987,16 @@ class HighlightEditor extends AnnotationEditor {
   select() {
     super.select();
     if (!this.#outlineId) {
-      return;
+      // If no outline ID, try to create the outline SVG
+      if (this.parent && this.parent.drawLayer && this.#focusOutlines) {
+        const annotationId = this.annotationElementId || this.id;
+        this.#outlineId = this.parent.drawLayer.highlightOutline(this.#focusOutlines, annotationId);
+      }
     }
-    this.parent?.drawLayer.removeClass(this.#outlineId, "hovered");
-    this.parent?.drawLayer.addClass(this.#outlineId, "selected");
+    if (this.#outlineId) {
+      this.parent?.drawLayer.removeClass(this.#outlineId, "hovered");
+      this.parent?.drawLayer.addClass(this.#outlineId, "selected");
+    }
   }
 
   /** @inheritdoc */
@@ -1089,6 +1292,14 @@ class HighlightEditor extends AnnotationEditor {
     // Set the annotation element ID for duplicate prevention
     this.annotationElementId = data.data?.id || data.id;
     
+    // Check if this annotation has been deleted - if so, don't create SVG elements
+    const annotationId = this.annotationElementId;
+    if (annotationId && this.parent?.annotationEditorLayer && 
+        this.parent.annotationEditorLayer.isDeletedAnnotationElement(annotationId)) {
+      console.log(`initializeFromDeserialization: Skipping SVG creation for deleted annotation ${annotationId}`);
+      return;
+    }
+    
     // Only create SVG elements if they don't already exist
     // This prevents duplicate creation when edit mode is enabled
     if (!hasSvgs && this.parent && this.parent.drawLayer) {
@@ -1124,6 +1335,15 @@ class HighlightEditor extends AnnotationEditor {
     // It doesn't make sense to copy/paste a highlight annotation.
     if (this.isEmpty() || isForCopying) {
       return null;
+    }
+
+    // Don't serialize deleted annotations
+    if (this.deleted) {
+      return {
+        pageIndex: this.pageIndex,
+        id: this.annotationElementId,
+        deleted: true,
+      };
     }
 
     const rect = this.getRect(0, 0);
