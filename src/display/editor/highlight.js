@@ -115,6 +115,19 @@ class HighlightEditor extends AnnotationEditor {
       }
     }
     
+    // Additional check: if SVGs already exist in the draw layer for this annotation,
+    // and we're in a save/reload scenario, avoid creating duplicate editors
+    if (annotationId && params.parent && params.parent.drawLayer) {
+      const existingHighlightId = params.parent.drawLayer.findByAnnotationId(annotationId, 'highlight');
+      const existingOutlineId = params.parent.drawLayer.findByAnnotationId(annotationId, 'highlightOutline');
+      
+      if (existingHighlightId !== null && existingOutlineId !== null) {
+        // SVGs exist but no editor is registered - this suggests a saved/reopened document
+        // Create the editor but mark it to reuse existing SVGs
+        params.reuseExistingSvgs = true;
+      }
+    }
+    
     // Create new editor
     return new HighlightEditor(params);
   }
@@ -150,10 +163,19 @@ class HighlightEditor extends AnnotationEditor {
       this.#createOutlines();
       this.#addToDrawLayer();
       this.rotate(this.rotation);
+    } else if (params.reuseExistingSvgs) {
+      // This is a case where SVGs already exist (saved/reopened document)
+      // We need to reuse them instead of creating new ones
+      this.#isDeserialized = true;
+      // The outlines will be created and SVGs will be reused in the addToDrawLayer method
+      if (this.#boxes) {
+        this.#createOutlines();
+        this.#addToDrawLayer();
+        this.rotate(this.rotation);
+      }
     } else {
       // This is likely a deserialized highlight from saved PDF annotations
-      // DO NOT create SVG elements here - they should already exist from initial page rendering
-      // #createOutlines() will be called later in deserialize method, but NOT #addToDrawLayer()
+      // SVG elements should be created later in the deserialization process
       this.#isDeserialized = true;
     }
   }
@@ -452,25 +474,30 @@ class HighlightEditor extends AnnotationEditor {
 
   /** @inheritdoc */
   remove() {
-    this.#cleanDrawLayer();
+    const annotationId = this.annotationElementId || this.id;
     
-    // Remove the SVG highlight from canvas wrapper when the editor is deleted
-    if (this.annotationElementId && this.parent) {
-      const pageElement = this.parent.div.parentElement;
-      if (pageElement) {
-        const canvasWrapper = pageElement.querySelector('.canvasWrapper');
-        if (canvasWrapper) {
-          const existingSVG = canvasWrapper.querySelector(`svg.highlight[data-annotation-id="${this.annotationElementId}"]`);
-          if (existingSVG) {
-            existingSVG.remove();
-          }
-        }
+    // Clean up global tracking
+    if (annotationId) {
+      HighlightEditor._editorRegistry.delete(annotationId);
+      
+      if (this.parent && this.parent.pageView && this.parent.pageView._highlightEditors) {
+        this.parent.pageView._highlightEditors.delete(annotationId);
+      }
+    }
+
+    // For deserialized highlights, we may want to keep the SVG elements
+    // but remove the editor wrapper when exiting edit mode
+    if (this.#isDeserialized && this.parent) {
+      // Don't clean the draw layer - SVGs should remain for annotation layer
+      this.#id = null;
+      this.#outlineId = null;
+    } else {
+      // For user-created highlights, clean up everything
+      if (!this.#isDeserialized) {
+        this.#cleanDrawLayer();
       }
     }
     
-    this._reportTelemetry({
-      action: "deleted",
-    });
     super.remove();
   }
 
@@ -540,16 +567,22 @@ class HighlightEditor extends AnnotationEditor {
     // Clean up global tracking in both places
     if (annotationId) {
       // Only remove from registry if this is NOT a deserialized highlight
+      // Deserialized highlights should remain in registry for reuse
       if (!this.#isDeserialized) {
         HighlightEditor._editorRegistry.delete(annotationId);
       }
       
       // Also clean up pageView tracking if available
       if (this.parent && this.parent.pageView && this.parent.pageView._highlightEditors) {
-        this.parent.pageView._highlightEditors.delete(annotationId);
+        // Only remove if this editor is being destroyed, not just cleaned up
+        // This prevents removal during edit mode transitions
+        if (!this.#isDeserialized) {
+          this.parent.pageView._highlightEditors.delete(annotationId);
+        }
       }
     }
     
+    // Remove SVG elements from draw layer
     this.parent.drawLayer.remove(this.#id);
     this.#id = null;
     this.parent.drawLayer.remove(this.#outlineId);
@@ -569,33 +602,33 @@ class HighlightEditor extends AnnotationEditor {
     const annotationId = this.annotationElementId || this.id;
     
     // Check if SVG elements already exist for this annotation
-    if (annotationId && parent.drawLayer.div) {
-      const existingSvgs = parent.drawLayer.div.querySelectorAll(`[data-annotation-id="${annotationId}"]`);
-      if (existingSvgs.length >= 2) {
+    if (annotationId) {
+      // First, check if we already have mapped SVG elements for this annotation
+      const existingHighlightId = this.#findExistingSvgId(parent.drawLayer, annotationId, 'highlight');
+      const existingOutlineId = this.#findExistingSvgId(parent.drawLayer, annotationId, 'highlightOutline');
+      
+      if (existingHighlightId !== null && existingOutlineId !== null) {
+        // Reuse existing SVG elements instead of creating new ones
+        this.#id = existingHighlightId;
+        this.#outlineId = existingOutlineId;
         
-        // For deserialized highlights, try to reuse existing SVGs instead of creating new ones
-        if (this.#isDeserialized) {
-          // Try to extract the IDs from existing SVGs
-          const highlightSvg = Array.from(existingSvgs).find(svg => svg.classList.contains('highlight'));
-          const outlineSvg = Array.from(existingSvgs).find(svg => svg.classList.contains('highlightOutline'));
-          
-          if (highlightSvg && outlineSvg) {
-            // Extract the IDs from the existing SVGs
-            this.#id = highlightSvg.id || `highlight_${annotationId}`;
-            this.#outlineId = outlineSvg.id || `outline_${annotationId}`;
-            
-            // Extract clipPath ID if available
-            const clipPath = highlightSvg.querySelector('defs clipPath');
-            if (clipPath) {
-              this.#clipPathId = `url(#${clipPath.id})`;
-            }
-            
-            return;
+        // Extract clipPath ID from the existing highlight SVG
+        const existingHighlightSvg = parent.drawLayer.getSvgElement(this.#id);
+        if (existingHighlightSvg) {
+          const clipPath = existingHighlightSvg.querySelector('defs clipPath');
+          if (clipPath) {
+            this.#clipPathId = `url(#${clipPath.id})`;
           }
         }
         
-        // Remove existing SVGs before creating new ones to avoid duplicates
-        existingSvgs.forEach(svg => svg.remove());
+        // Update the SVG elements with current highlight properties
+        parent.drawLayer.changeColor(this.#id, this.color);
+        parent.drawLayer.changeOpacity(this.#id, this.#opacity);
+        
+        if (this.#highlightDiv) {
+          this.#highlightDiv.style.clipPath = this.#clipPathId;
+        }
+        return;
       }
     }
 
@@ -604,37 +637,30 @@ class HighlightEditor extends AnnotationEditor {
       this.#cleanDrawLayer();
     }
 
-    // Create new SVG elements
+    // Create new SVG elements only if they don't exist
     ({ id: this.#id, clipPathId: this.#clipPathId } =
       parent.drawLayer.highlight(
         this.#highlightOutlines,
         this.color,
-        this.#opacity
+        this.#opacity,
+        false,
+        annotationId
       ));
-    this.#outlineId = parent.drawLayer.highlightOutline(this.#focusOutlines);
-    
-    // Mark the created SVG elements with annotation ID
-    if (annotationId && parent.drawLayer.div && this.#id !== null && this.#outlineId !== null) {
-      const allSvgs = parent.drawLayer.div.querySelectorAll('svg');
-      
-      for (const svg of allSvgs) {
-        if (svg.classList.contains('highlight') && !svg.hasAttribute('data-annotation-id')) {
-          svg.setAttribute('data-annotation-id', annotationId);
-          break;
-        }
-      }
-      
-      for (const svg of allSvgs) {
-        if (svg.classList.contains('highlightOutline') && !svg.hasAttribute('data-annotation-id')) {
-          svg.setAttribute('data-annotation-id', annotationId);
-          break;
-        }
-      }
-    }
+    this.#outlineId = parent.drawLayer.highlightOutline(this.#focusOutlines, annotationId);
     
     if (this.#highlightDiv) {
       this.#highlightDiv.style.clipPath = this.#clipPathId;
     }
+  }
+
+  // Helper method to find existing SVG ID by annotation ID and type
+  #findExistingSvgId(drawLayer, annotationId, svgType) {
+    return drawLayer.findByAnnotationId(annotationId, svgType);
+  }
+  
+  // Helper method to mark SVG with annotation ID
+  #markSvgWithAnnotationId(drawLayer, svgId, annotationId) {
+    drawLayer.setAnnotationId(svgId, annotationId);
   }
 
   static #rotateBbox({ x, y, width, height }, angle) {
@@ -793,12 +819,12 @@ class HighlightEditor extends AnnotationEditor {
     if (this.div) {
       super.show(visible);
     }
-    if (this.parent) {
-      // For persistent/deserialized highlights, always keep the SVG visible
-      // Only hide SVG elements for non-persistent highlights
-      const keepSvgVisible = this.#isDeserialized || visible;
-      this.parent.drawLayer.show(this.#id, keepSvgVisible);
-      this.parent.drawLayer.show(this.#outlineId, keepSvgVisible);
+    if (this.parent && this.#id !== null) {
+      // For highlights, SVGs should always remain visible in the canvasWrapper for proper blending
+      // The editor div visibility is separate from SVG visibility
+      const svgVisible = this.#isDeserialized ? true : visible;
+      this.parent.drawLayer.show(this.#id, svgVisible);
+      this.parent.drawLayer.show(this.#outlineId, svgVisible);
     }
   }
 
@@ -950,17 +976,20 @@ class HighlightEditor extends AnnotationEditor {
       }
     }
     
-    // Additional check: if SVG elements already exist, don't create a new editor
-    const drawLayerExists = parent?.drawLayer?.div;
-    const existingSvgs = drawLayerExists ? parent.drawLayer.div.querySelectorAll(`[data-annotation-id="${annotationId}"]`) : [];
+    // Additional check: if SVG elements already exist in DrawLayer, don't create a new editor
+    const drawLayerExists = parent?.drawLayer;
+    let svgsAlreadyExist = false;
     
-    if (drawLayerExists && existingSvgs.length >= 2) {
-      // SVGs exist but no valid editor - we'll create a new editor that can manage them
-      // The #addToDrawLayer method will handle cleanup of existing SVGs
+    if (drawLayerExists && annotationId) {
+      const existingHighlightId = drawLayerExists.findByAnnotationId(annotationId, 'highlight');
+      const existingOutlineId = drawLayerExists.findByAnnotationId(annotationId, 'highlightOutline');
+      svgsAlreadyExist = existingHighlightId !== null && existingOutlineId !== null;
+      
+      if (svgsAlreadyExist) {
+        // SVGs exist but no valid editor - we'll create a new editor that can manage them
+        // The #addToDrawLayer method will handle reusing existing SVGs
+      }
     }
-    
-    // Mark if SVGs already exist for this annotation (for the initialization method)
-    const svgsAlreadyExist = annotationId && parent?.drawLayer?.div?.querySelectorAll(`[data-annotation-id="${annotationId}"]`).length >= 2;
     
     // Normalize the data structure for the parent deserialize method
     let normalizedData = data;
@@ -1062,17 +1091,32 @@ class HighlightEditor extends AnnotationEditor {
     
     // Only create SVG elements if they don't already exist
     // This prevents duplicate creation when edit mode is enabled
-    if (!hasSvgs) {
+    if (!hasSvgs && this.parent && this.parent.drawLayer) {
       const annotationId = this.annotationElementId;
-      const existingSvgs = this.parent?.drawLayer?.div?.querySelectorAll(`[data-annotation-id="${annotationId}"]`);
       
-      if (!existingSvgs || existingSvgs.length === 0) {
+      // Double-check if SVG elements exist using our helper method
+      const existingHighlightId = this.#findExistingSvgId(this.parent.drawLayer, annotationId, 'highlight');
+      const existingOutlineId = this.#findExistingSvgId(this.parent.drawLayer, annotationId, 'highlightOutline');
+      
+      if (existingHighlightId === null || existingOutlineId === null) {
         // No existing SVGs found, this is likely the initial creation
         this.#addToDrawLayer();
+      } else {
+        // SVGs already exist, reuse them
+        this.#id = existingHighlightId;
+        this.#outlineId = existingOutlineId;
+        
+        // Extract clipPath ID from the existing highlight SVG
+        const existingHighlightSvg = this.parent.drawLayer.getSvgElement(this.#id);
+        if (existingHighlightSvg) {
+          const clipPath = existingHighlightSvg.querySelector('defs clipPath');
+          if (clipPath) {
+            this.#clipPathId = `url(#${clipPath.id})`;
+          }
+        }
       }
-      // If existingSvgs.length > 0, SVGs already exist - don't create new ones
     }
-    // If hasSvgs is true, definitely don't create new SVGs
+    // If hasSvgs is true, SVGs definitely already exist - don't create new ones
   }
 
   /** @inheritdoc */

@@ -865,8 +865,20 @@ class PDFPageView {
             continue;
           }
           
-          // Pass the pageView (this) and the UI manager to the annotation element
+          // Additional check: if SVGs already exist for this annotation, skip creation
+          // This handles the case where editor layer has already processed this annotation
           const { annotationEditorUIManager } = this.#layerProperties;
+          if (annotationEditorUIManager && this.drawLayer) {
+            const existingHighlightId = this.drawLayer.getDrawLayer().findByAnnotationId(id, 'highlight');
+            const existingOutlineId = this.drawLayer.getDrawLayer().findByAnnotationId(id, 'highlightOutline');
+            
+            if (existingHighlightId !== null && existingOutlineId !== null) {
+              // SVGs already exist, skip this annotation
+              continue;
+            }
+          }
+          
+          // Pass the pageView (this) and the UI manager to the annotation element
           highlightAnnotation._createHighlightEditor(this, annotationEditorUIManager);
         } catch (err) {
           console.warn(`Failed to create highlight editor for annotation ${id}:`, err);

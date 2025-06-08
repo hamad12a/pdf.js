@@ -2924,25 +2924,15 @@ class HighlightAnnotationElement extends AnnotationElement {
   }
 
   hide() {
-    // Override hide to ensure SVG highlight remains visible
-    // Only hide the annotation container, but keep the SVG in canvasWrapper visible
+    // Override hide to ensure SVG highlight remains visible for proper blending
+    // The annotation container should be hidden, but the SVG should remain visible in canvasWrapper
     if (this.container) {
       this.container.hidden = true;
     }
     this.popup?.forceHide();
     
-    // Ensure SVG highlight remains visible in canvasWrapper
-    const pageElement = this.parent.div.parentElement;
-    if (pageElement) {
-      const canvasWrapper = pageElement.querySelector('.canvasWrapper');
-      if (canvasWrapper) {
-        const svg = canvasWrapper.querySelector(`svg.highlight[data-annotation-id="${this.data.id}"]`);
-        if (svg) {
-          svg.style.display = '';
-          svg.style.visibility = 'visible';
-        }
-      }
-    }
+    // SVG highlights are handled by the HighlightEditor and should remain visible
+    // for proper blending in the canvasWrapper - no action needed here
   }
 
   show() {
@@ -2951,18 +2941,8 @@ class HighlightAnnotationElement extends AnnotationElement {
     }
     this.popup?.maybeShow();
     
-    // Ensure SVG highlight remains visible in canvasWrapper
-    const pageElement = this.parent.div.parentElement;
-    if (pageElement) {
-      const canvasWrapper = pageElement.querySelector('.canvasWrapper');
-      if (canvasWrapper) {
-        const svg = canvasWrapper.querySelector(`svg.highlight[data-annotation-id="${this.data.id}"]`);
-        if (svg) {
-          svg.style.display = '';
-          svg.style.visibility = 'visible';
-        }
-      }
-    }
+    // SVG highlights are handled by the HighlightEditor and should remain visible
+    // for proper blending in the canvasWrapper - no action needed here
   }
 
   render() {
@@ -2999,11 +2979,29 @@ class HighlightAnnotationElement extends AnnotationElement {
       if (!pageElement._pendingHighlights) {
         pageElement._pendingHighlights = new Map();
       }
+      
+      // Check if this annotation already has editor data in the annotation storage
+      // If it does, it will be handled by the editor layer deserialization instead
+      if (this.annotationStorage) {
+        const storedData = this.annotationStorage.getRawValue(this.data.id);
+        if (storedData && (storedData.annotationType === 14 || storedData.annotationEditorType === 14)) {
+          // This highlight has editor data - don't store as pending
+          // It will be handled by the editor layer deserialization
+          return;
+        }
+      }
+      
       pageElement._pendingHighlights.set(this.data.id, this);
     }
   }
 
   _createHighlightEditor(pageView = null, uiManager = null) {
+    // Only create highlight editors if we have a valid uiManager
+    // This prevents automatic editor creation during PDF loading
+    if (!uiManager) {
+      return;
+    }
+    
     // Prevent infinite recursion by checking if editor already exists
     if (this._highlightEditor || this._creatingHighlightEditor) {
       return;
@@ -3045,9 +3043,11 @@ class HighlightAnnotationElement extends AnnotationElement {
     // This prevents duplicate creation when edit mode is enabled
     if (pageView && pageView.annotationEditorLayer && pageView.annotationEditorLayer.annotationEditorLayer) {
       const drawLayer = pageView.annotationEditorLayer.annotationEditorLayer.drawLayer;
-      if (drawLayer && drawLayer.div) {
-        const existingSvgs = drawLayer.div.querySelectorAll(`[data-annotation-id="${annotationId}"]`);
-        if (existingSvgs.length >= 2) {
+      if (drawLayer) {
+        const existingHighlightId = drawLayer.findByAnnotationId(annotationId, 'highlight');
+        const existingOutlineId = drawLayer.findByAnnotationId(annotationId, 'highlightOutline');
+        
+        if (existingHighlightId !== null && existingOutlineId !== null) {
           // SVGs already exist, don't create a new editor - just return
           // Clean up the tracking marker since we're not creating anything
           if (pageView._highlightEditors) {
@@ -3165,7 +3165,14 @@ class HighlightAnnotationElement extends AnnotationElement {
   ensureHighlightEditor() {
     if (this._needsHighlightEditor && !this._highlightEditor) {
       this._needsHighlightEditor = false;
-      this._createHighlightEditor();
+      // Find the UI manager before creating the editor
+      let pageElement = this.parent.div.parentElement;
+      while (pageElement && !pageElement.pageView) {
+        pageElement = pageElement.parentElement;
+      }
+      const pageView = pageElement?.pageView;
+      const uiManager = pageView?.annotationEditorLayer?.annotationEditorLayer?.uiManager;
+      this._createHighlightEditor(pageView, uiManager);
     }
   }
 
@@ -3318,7 +3325,14 @@ class HighlightAnnotationElement extends AnnotationElement {
       
       // Recreate the highlight
       if (annotationElement && typeof annotationElement._createHighlightEditor === 'function') {
-        annotationElement._createHighlightEditor();
+        // Find the UI manager for undo/redo operations
+        let pageElement = annotationElement.parent?.div?.parentElement;
+        while (pageElement && !pageElement.pageView) {
+          pageElement = pageElement.parentElement;
+        }
+        const pageView = pageElement?.pageView;
+        const uiManager = pageView?.annotationEditorLayer?.annotationEditorLayer?.uiManager;
+        annotationElement._createHighlightEditor(pageView, uiManager);
       }
       
       // Add to redo stack
@@ -3627,6 +3641,8 @@ class AnnotationLayer {
 
   #editableAnnotations = new Map();
 
+  #highlightKeys = null;
+
   constructor({
     div,
     accessibilityManager,
@@ -3681,6 +3697,10 @@ class AnnotationLayer {
    */
   async render(params) {
     const { annotations } = params;
+    
+    // Clear highlight keys to prevent stale deduplication data
+    this.#highlightKeys = null;
+    
     // Process annotations and create DOM elements
     const layer = this.div;
     setLayerDimensions(layer, this.viewport);
@@ -3737,11 +3757,31 @@ class AnnotationLayer {
         }
       }
 
+      // For highlight annotations, check for duplicates based on content rather than just ID
+      // This prevents the same logical highlight from being added multiple times with different IDs
+      if (element._isEditable && element.annotationEditorType === AnnotationEditorType.HIGHLIGHT) {
+        const highlightKey = this.#getHighlightKey(element);
+        const existingHighlight = this.#findExistingHighlight(highlightKey);
+        
+        if (existingHighlight) {
+          // Duplicate highlight found - skip rendering this one entirely
+          console.warn(`Skipping duplicate highlight annotation ${element.data.id}, already exists as ${existingHighlight.data.id}`);
+          continue;
+        } else {
+          // Store the highlight key for future duplicate detection
+          if (!this.#highlightKeys) {
+            this.#highlightKeys = new Map();
+          }
+          this.#highlightKeys.set(highlightKey, element);
+        }
+      }
+
       const rendered = element.render();
       if (!rendered) {
         // Skip deleted annotations
         continue;
       }
+
       if (data.hidden) {
         rendered.style.visibility = "hidden";
       }
@@ -3803,6 +3843,32 @@ class AnnotationLayer {
 
   getEditableAnnotation(id) {
     return this.#editableAnnotations.get(id);
+  }
+
+  /**
+   * Generate a unique key for a highlight annotation based on its content
+   * @private
+   */
+  #getHighlightKey(element) {
+    if (!element.data || !element.data.quadPoints) {
+      return null;
+    }
+    // Create a key based on quadPoints and color to identify logically identical highlights
+    const quadPointsStr = element.data.quadPoints.join(',');
+    const color = element.data.color || [1, 1, 0]; // Default yellow
+    const colorStr = color.join(',');
+    return `${quadPointsStr}|${colorStr}`;
+  }
+
+  /**
+   * Find an existing highlight with the same content key
+   * @private
+   */
+  #findExistingHighlight(highlightKey) {
+    if (!this.#highlightKeys || !highlightKey) {
+      return null;
+    }
+    return this.#highlightKeys.get(highlightKey);
   }
 }
 

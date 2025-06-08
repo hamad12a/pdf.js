@@ -86,7 +86,24 @@ class DrawLayer {
     return clipPathId;
   }
 
-  highlight(outlines, color, opacity, isPathUpdatable = false) {
+  highlight(outlines, color, opacity, isPathUpdatable = false, annotationId = null) {
+    // Check for existing highlight with same content
+    if (annotationId) {
+      const existingId = this.findExistingHighlight(outlines, color, opacity);
+      if (existingId !== null) {
+        const existingSvg = this.#mapping.get(existingId);
+        if (existingSvg) {
+          // Update the existing SVG with the new annotation ID if needed
+          const existingAnnotationId = existingSvg.getAttribute('data-annotation-id');
+          if (!existingAnnotationId) {
+            existingSvg.setAttribute('data-annotation-id', annotationId);
+          }
+          console.warn(`Reusing existing highlight SVG for annotation ${annotationId}, existing ID: ${existingId}`);
+          return { id: existingId, clipPathId: existingSvg.getAttribute('clip-path') || `url(#clippath_${existingId})` };
+        }
+      }
+    }
+
     const id = this.#id++;
     const root = this.#createSVG(outlines.box);
     root.classList.add("highlight");
@@ -114,12 +131,34 @@ class DrawLayer {
     root.setAttribute("fill-opacity", opacity);
     use.setAttribute("href", `#${pathId}`);
 
+    // Set annotation ID if provided
+    if (annotationId) {
+      root.setAttribute('data-annotation-id', annotationId);
+    }
+
     this.#mapping.set(id, root);
 
     return { id, clipPathId: `url(#${clipPathId})` };
   }
 
-  highlightOutline(outlines) {
+  highlightOutline(outlines, annotationId = null) {
+    // Check for existing highlight outline with same content
+    if (annotationId) {
+      const existingId = this.findExistingHighlightOutline(outlines);
+      if (existingId !== null) {
+        const existingSvg = this.#mapping.get(existingId);
+        if (existingSvg) {
+          // Update the existing SVG with the new annotation ID if needed
+          const existingAnnotationId = existingSvg.getAttribute('data-annotation-id');
+          if (!existingAnnotationId) {
+            existingSvg.setAttribute('data-annotation-id', annotationId);
+          }
+          console.warn(`Reusing existing highlight outline SVG for annotation ${annotationId}, existing ID: ${existingId}`);
+          return existingId;
+        }
+      }
+    }
+
     // We cannot draw the outline directly in the SVG for highlights because
     // it composes with its parent with mix-blend-mode: multiply.
     // But the outline has a different mix-blend-mode, so we need to draw it in
@@ -127,6 +166,12 @@ class DrawLayer {
     const id = this.#id++;
     const root = this.#createSVG(outlines.box);
     root.classList.add("highlightOutline");
+    
+    // Set annotation ID if provided
+    if (annotationId) {
+      root.setAttribute('data-annotation-id', annotationId);
+    }
+
     const defs = DrawLayer._svgFactory.createElement("defs");
     root.append(defs);
     const path = DrawLayer._svgFactory.createElement("path");
@@ -239,6 +284,84 @@ class DrawLayer {
       root.remove();
     }
     this.#mapping.clear();
+  }
+
+  // Method to set annotation ID on an existing SVG element
+  setAnnotationId(id, annotationId) {
+    const root = this.#mapping.get(id);
+    if (root && annotationId) {
+      root.setAttribute('data-annotation-id', annotationId);
+    }
+  }
+
+  // Method to find SVG ID by annotation ID and type
+  findByAnnotationId(annotationId, svgType) {
+    if (!annotationId) {
+      return null;
+    }
+    
+    for (const [id, svgElement] of this.#mapping) {
+      if (svgType && !svgElement.classList.contains(svgType)) {
+        continue;
+      }
+      
+      const dataAnnotationId = svgElement.getAttribute('data-annotation-id');
+      if (dataAnnotationId === annotationId) {
+        return id;
+      }
+    }
+    
+    return null;
+  }
+
+  // Method to get SVG element by ID
+  getSvgElement(id) {
+    return this.#mapping.get(id);
+  }
+
+  // Method to find existing highlight with same content
+  findExistingHighlight(outlines, color, opacity) {
+    const targetPath = outlines.toSVGPath();
+    const targetColor = color;
+    const targetOpacity = opacity;
+    
+    for (const [id, svgElement] of this.#mapping) {
+      if (!svgElement.classList.contains('highlight')) {
+        continue;
+      }
+      
+      const fill = svgElement.getAttribute('fill');
+      const fillOpacity = svgElement.getAttribute('fill-opacity');
+      
+      if (fill === targetColor && fillOpacity === targetOpacity) {
+        // Check if the path matches
+        const pathElement = svgElement.querySelector('path');
+        if (pathElement && pathElement.getAttribute('d') === targetPath) {
+          return id;
+        }
+      }
+    }
+    
+    return null;
+  }
+
+  // Method to find existing highlight outline with same content
+  findExistingHighlightOutline(outlines) {
+    const targetPath = outlines.toSVGPath();
+    
+    for (const [id, svgElement] of this.#mapping) {
+      if (!svgElement.classList.contains('highlightOutline')) {
+        continue;
+      }
+      
+      // Check if the path matches
+      const pathElement = svgElement.querySelector('path');
+      if (pathElement && pathElement.getAttribute('d') === targetPath) {
+        return id;
+      }
+    }
+    
+    return null;
   }
 }
 
