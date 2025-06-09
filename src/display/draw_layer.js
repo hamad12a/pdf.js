@@ -50,6 +50,18 @@ class DrawLayer {
       this.#parent = parent;
     }
   }
+  
+  /**
+   * Get the annotation editor UI manager from various possible parent contexts
+   * @private
+   */
+  #getUIManager() {
+    // Try multiple paths to find the UI manager
+    return this.#parent?.annotationEditorUIManager || 
+           this.#parent?._layerProperties?.annotationEditorUIManager ||
+           this.#parent?.pageView?._layerProperties?.annotationEditorUIManager ||
+           null;
+  }
 
   static get _svgFactory() {
     return shadow(this, "_svgFactory", new DOMSVGFactory());
@@ -91,7 +103,8 @@ class DrawLayer {
     console.log('Stack trace:', new Error().stack);
     
     // Check if annotation is deleted before creating SVG
-    if (annotationId && this.#parent?.annotationEditorUIManager?.isDeletedAnnotationElement?.(annotationId)) {
+    const uiManager = this.#getUIManager();
+    if (annotationId && uiManager?.isDeletedAnnotationElement?.(annotationId)) {
       console.log(`DrawLayer: Not creating highlight SVG for deleted annotation ${annotationId}`);
       return null;
     }
@@ -152,7 +165,8 @@ class DrawLayer {
 
   highlightOutline(outlines, annotationId = null) {
     // Check if annotation is deleted before creating SVG
-    if (annotationId && this.#parent?.annotationEditorUIManager?.isDeletedAnnotationElement?.(annotationId)) {
+    const uiManager = this.#getUIManager();
+    if (annotationId && uiManager?.isDeletedAnnotationElement?.(annotationId)) {
       console.log(`DrawLayer: Not creating highlight outline SVG for deleted annotation ${annotationId}`);
       return null;
     }

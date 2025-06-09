@@ -408,6 +408,9 @@ class PDFPageView {
   async #renderDrawLayer() {
     try {
       await this.drawLayer.render("display");
+      
+      // Immediately clean up any deleted annotation SVGs that might have been recreated
+      this.#cleanupDeletedAnnotationSVGs();
     } catch (ex) {
       console.error(`#renderDrawLayer: "${ex}".`);
     }
@@ -836,6 +839,9 @@ class PDFPageView {
         this.#renderDrawLayer();
       }
       this.#renderAnnotationEditorLayer();
+      
+      // Clean up any deleted annotation SVGs that might have been restored during re-rendering
+      this.#cleanupDeletedAnnotationSVGs();
     }
     if (redrawXfaLayer && this.xfaLayer) {
       this.#renderXfaLayer();
@@ -1220,6 +1226,127 @@ class PDFPageView {
     return directDrawing && initialOptionalContent && regularAnnotations
       ? this.canvas
       : null;
+  }
+
+  /**
+   * Clean up any SVG elements for deleted annotations during page re-rendering.
+   * This prevents deleted highlights from reappearing during resize/zoom operations.
+   * @private
+   */
+  #cleanupDeletedAnnotationSVGs() {
+    // Only clean up if we have an annotation editor UI manager
+    if (!this.#layerProperties?.annotationEditorUIManager) {
+      return;
+    }
+    
+    const uiManager = this.#layerProperties.annotationEditorUIManager;
+    
+    // Get the list of deleted annotation IDs
+    if (!uiManager.isDeletedAnnotationElement) {
+      return;
+    }
+    
+    const canvasWrapper = this.div.querySelector('.canvasWrapper');
+    if (!canvasWrapper) {
+      return;
+    }
+    
+    // Find all SVG elements with annotation IDs and check if they're deleted
+    const allAnnotatedSvgs = canvasWrapper.querySelectorAll('[data-annotation-id]');
+    
+    allAnnotatedSvgs.forEach(svg => {
+      const annotationId = svg.getAttribute('data-annotation-id');
+      if (annotationId && uiManager.isDeletedAnnotationElement(annotationId)) {
+        console.log(`Page ${this.id}: Removing SVG for deleted annotation ${annotationId} during re-render`);
+        
+        try {
+          if (svg.parentNode) {
+            svg.parentNode.removeChild(svg);
+          } else {
+            svg.remove();
+          }
+        } catch (e) {
+          console.warn(`Error removing SVG element for ${annotationId}:`, e);
+          // Fallback: hide the element if removal fails
+          svg.style.display = 'none';
+          svg.style.visibility = 'hidden';
+          svg.setAttribute('data-deleted', 'true');
+        }
+      }
+    });
+    
+    // Set up a mutation observer to catch any new SVG elements being added
+    this.#setupSVGMutationObserver(canvasWrapper, uiManager);
+  }
+
+  /**
+   * Set up a mutation observer to watch for new SVG elements and remove them if they're for deleted annotations
+   * @private
+   */
+  #setupSVGMutationObserver(canvasWrapper, uiManager) {
+    // Don't set up multiple observers
+    if (canvasWrapper._svgMutationObserver) {
+      return;
+    }
+    
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.type === 'childList') {
+          mutation.addedNodes.forEach((node) => {
+            if (node.nodeType === Node.ELEMENT_NODE) {
+              // Check the node itself
+              this.#checkAndRemoveDeletedSVG(node, uiManager);
+              
+              // Check any descendant elements with annotation IDs
+              if (node.querySelectorAll) {
+                const svgElements = node.querySelectorAll('[data-annotation-id]');
+                svgElements.forEach(svg => this.#checkAndRemoveDeletedSVG(svg, uiManager));
+              }
+            }
+          });
+        }
+      });
+    });
+    
+    observer.observe(canvasWrapper, {
+      childList: true,
+      subtree: true
+    });
+    
+    canvasWrapper._svgMutationObserver = observer;
+    
+    // Clean up observer after some time to prevent memory leaks
+    setTimeout(() => {
+      if (canvasWrapper._svgMutationObserver) {
+        canvasWrapper._svgMutationObserver.disconnect();
+        canvasWrapper._svgMutationObserver = null;
+      }
+    }, 5000); // 5 seconds should be enough for any re-rendering
+  }
+
+  /**
+   * Check if an element is for a deleted annotation and remove it if so
+   * @private
+   */
+  #checkAndRemoveDeletedSVG(element, uiManager) {
+    const annotationId = element.getAttribute?.('data-annotation-id');
+    if (annotationId && uiManager.isDeletedAnnotationElement(annotationId)) {
+      console.log(`Page ${this.id}: Intercepted and removing SVG for deleted annotation ${annotationId}`);
+      
+      try {
+        if (element.parentNode) {
+          element.parentNode.removeChild(element);
+        } else {
+          element.remove();
+        }
+      } catch (e) {
+        console.warn(`Error removing intercepted SVG element for ${annotationId}:`, e);
+        // Fallback: hide the element if removal fails
+        element.style.display = 'none';
+        element.style.visibility = 'hidden';
+        element.setAttribute('data-deleted', 'true');
+      }
+    }
   }
 }
 

@@ -755,6 +755,13 @@ class HighlightEditor extends AnnotationEditor {
       return;
     }
     
+    // Additional check: if the UI manager considers this deleted, don't create SVGs
+    const uiManager = this._uiManager || this.parent?._uiManager || parent?.annotationEditorUIManager;
+    if (uiManager && uiManager.isDeletedAnnotationElement && uiManager.isDeletedAnnotationElement(annotationId)) {
+      console.log(`#addToDrawLayer: UI manager says annotation ${annotationId} is deleted, skipping SVG creation`);
+      return;
+    }
+    
     // Check if SVG elements already exist for this annotation
     if (annotationId) {
       // First, check if we already have mapped SVG elements for this annotation
@@ -1018,6 +1025,35 @@ class HighlightEditor extends AnnotationEditor {
 
   /** @inheritdoc */
   show(visible = this._isVisible) {
+    const annotationId = this.annotationElementId || this.id;
+    
+    // Check if this is a deleted annotation - if so, force hide it
+    const uiManager = this._uiManager || this.parent?._uiManager;
+    if (annotationId && uiManager && uiManager.isDeletedAnnotationElement && uiManager.isDeletedAnnotationElement(annotationId)) {
+      console.log(`HighlightEditor.show(): Forcing hide for deleted annotation ${annotationId}`);
+      
+      // Force hide by setting visible to false
+      visible = false;
+      
+      // Also remove any existing SVG elements
+      if (this.parent && this.parent.drawLayer) {
+        if (this.#id !== null) {
+          this.parent.drawLayer.show(this.#id, false);
+        }
+        if (this.#outlineId !== null) {
+          this.parent.drawLayer.show(this.#outlineId, false);
+        }
+      }
+      
+      // Hide the div if it exists
+      if (this.div) {
+        this.div.style.display = 'none';
+        this.div.style.visibility = 'hidden';
+      }
+      
+      return;
+    }
+    
     // Only call super.show if div has been created
     if (this.div) {
       super.show(visible);

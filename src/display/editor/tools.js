@@ -1128,6 +1128,10 @@ class AnnotationEditorUIManager {
     
     console.log('Deleted annotation IDs to clean up:', Array.from(this.#deletedAnnotationsElementIds));
     
+    // First, hide/remove any existing editors for deleted annotations
+    this.#cleanupDeletedEditors();
+    
+    // Then clean up SVG elements in the DOM
     // Iterate through all layers to find and remove SVG elements for deleted annotations
     for (const layer of this.#allLayers.values()) {
       if (!layer || !layer.pageView || !layer.pageView.div) {
@@ -1144,17 +1148,90 @@ class AnnotationEditorUIManager {
       
       // Remove SVG elements for each deleted annotation
       for (const deletedId of this.#deletedAnnotationsElementIds) {
-        const svgElements = canvasWrapper.querySelectorAll(`svg[data-annotation-id="${deletedId}"]`);
-        if (svgElements.length > 0) {
-          console.log(`Found ${svgElements.length} SVG elements to remove for deleted annotation ${deletedId} on page ${layer.pageIndex}`);
-          svgElements.forEach((svg, index) => {
-            console.log(`Removing SVG element ${index + 1} for deleted annotation ${deletedId}:`, svg);
-            svg.remove();
+        // Use a more comprehensive selector to catch all possible SVG elements
+        const svgSelectors = [
+          `svg[data-annotation-id="${deletedId}"]`,
+          `[data-annotation-id="${deletedId}"]`,
+          `*[data-annotation-id="${deletedId}"]`
+        ];
+        
+        for (const selector of svgSelectors) {
+          const svgElements = canvasWrapper.querySelectorAll(selector);
+          if (svgElements.length > 0) {
+            console.log(`Found ${svgElements.length} SVG elements to remove for deleted annotation ${deletedId} on page ${layer.pageIndex} (selector: ${selector})`);
+            svgElements.forEach((svg, index) => {
+              console.log(`Removing SVG element ${index + 1} for deleted annotation ${deletedId}:`, svg);
+              
+              // Use multiple removal strategies to ensure proper cleanup
+              try {
+                if (svg.parentNode) {
+                  svg.parentNode.removeChild(svg);
+                } else {
+                  svg.remove();
+                }
+              } catch (e) {
+                console.warn(`Error removing SVG element for ${deletedId}:`, e);
+                // Fallback: hide the element if removal fails
+                svg.style.display = 'none';
+                svg.style.visibility = 'hidden';
+              }
+            });
+          }
+        }
+        
+        // Verify removal
+        const remainingSvgs = canvasWrapper.querySelectorAll(`[data-annotation-id="${deletedId}"]`);
+        console.log(`SVG elements remaining for ${deletedId} on page ${layer.pageIndex}: ${remainingSvgs.length}`);
+        
+        // Force hide any remaining elements as a fallback
+        if (remainingSvgs.length > 0) {
+          console.warn(`Some SVG elements could not be removed for ${deletedId}, hiding them instead`);
+          remainingSvgs.forEach(svg => {
+            svg.style.display = 'none';
+            svg.style.visibility = 'hidden';
+            svg.setAttribute('data-deleted', 'true');
           });
+        }
+      }
+    }
+  }
+
+  /**
+   * Clean up existing editors for deleted annotations
+   * @private
+   */
+  #cleanupDeletedEditors() {
+    for (const deletedId of this.#deletedAnnotationsElementIds) {
+      // Find and remove any existing editors for this deleted annotation
+      for (const [editorId, editor] of this.#allEditors) {
+        if (editor.annotationElementId === deletedId) {
+          console.log(`Found existing editor ${editorId} for deleted annotation ${deletedId}, hiding it`);
           
-          // Verify removal
-          const remainingSvgs = canvasWrapper.querySelectorAll(`svg[data-annotation-id="${deletedId}"]`);
-          console.log(`SVG elements remaining for ${deletedId} on page ${layer.pageIndex}: ${remainingSvgs.length}`);
+          // Force hide the editor
+          if (editor.show) {
+            editor.show(false);
+          }
+          
+          // If it's a highlight editor, make sure the SVGs are hidden
+          if (editor.editorType === 14) { // AnnotationEditorType.HIGHLIGHT
+            try {
+              // Force cleanup of its draw layer elements
+              if (editor.parent && editor.parent.drawLayer) {
+                // Access private fields to force cleanup
+                const highlightId = editor._highlightId || editor.id;
+                const outlineId = editor._outlineId;
+                
+                if (highlightId !== null && highlightId !== undefined) {
+                  editor.parent.drawLayer.show(highlightId, false);
+                }
+                if (outlineId !== null && outlineId !== undefined) {
+                  editor.parent.drawLayer.show(outlineId, false);
+                }
+              }
+            } catch (e) {
+              console.warn(`Error hiding draw layer elements for deleted editor ${editorId}:`, e);
+            }
+          }
         }
       }
     }

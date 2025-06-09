@@ -2950,7 +2950,8 @@ class HighlightAnnotationElement extends AnnotationElement {
     
     // Check if this annotation has been marked as deleted
     // First check UI manager (for current session)
-    if (this.parent._annotationEditorUIManager?.isDeletedAnnotationElement(this.data.id)) {
+    const uiManager = this.parent._annotationEditorUIManager;
+    if (uiManager?.isDeletedAnnotationElement(this.data.id)) {
       console.log('Annotation', this.data.id, 'is marked as deleted in UI manager - not rendering');
       return null;
     }
@@ -2961,6 +2962,23 @@ class HighlightAnnotationElement extends AnnotationElement {
       if (storedData && storedData.deleted) {
         console.log('Annotation', this.data.id, 'is marked as deleted in storage - not rendering');
         return null;
+      }
+    }
+
+    // Additional check: if we find existing SVG elements for a deleted annotation in the DOM,
+    // remove them immediately and don't render
+    if (uiManager) {
+      const pageElement = this.parent.div.parentElement;
+      if (pageElement) {
+        const canvasWrapper = pageElement.querySelector('.canvasWrapper');
+        if (canvasWrapper) {
+          const existingSvgs = canvasWrapper.querySelectorAll(`[data-annotation-id="${this.data.id}"]`);
+          if (existingSvgs.length > 0 && uiManager.isDeletedAnnotationElement(this.data.id)) {
+            console.log(`Found existing SVGs for deleted annotation ${this.data.id}, removing them`);
+            existingSvgs.forEach(svg => svg.remove());
+            return null;
+          }
+        }
       }
     }
 
@@ -3014,6 +3032,19 @@ class HighlightAnnotationElement extends AnnotationElement {
     // Check if this annotation has been deleted - if so, don't create editor
     if (uiManager.isDeletedAnnotationElement && uiManager.isDeletedAnnotationElement(this.data.id)) {
       console.log(`_createHighlightEditor: Skipping deleted annotation ${this.data.id}`);
+      
+      // If this is a deleted annotation but we find SVG elements, remove them
+      if (pageView) {
+        const canvasWrapper = pageView.div?.querySelector('.canvasWrapper');
+        if (canvasWrapper) {
+          const svgElements = canvasWrapper.querySelectorAll(`[data-annotation-id="${this.data.id}"]`);
+          if (svgElements.length > 0) {
+            console.log(`_createHighlightEditor: Removing ${svgElements.length} SVG elements for deleted annotation ${this.data.id}`);
+            svgElements.forEach(svg => svg.remove());
+          }
+        }
+      }
+      
       return;
     }
     
