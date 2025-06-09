@@ -1,8 +1,12 @@
 /* Copyright 2023 Mozilla Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * you may not use this file except in compliance with the License.          const existingAnnotationId = existingSvg.getAttribute('data-annotation-id');
+          if (!existingAnnotationId) {
+            existingSvg.setAttribute('data-annotation-id', annotationId);
+          }
+          return existingId;
+        } may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -99,13 +103,9 @@ class DrawLayer {
   }
 
   highlight(outlines, color, opacity, isPathUpdatable = false, annotationId = null) {
-    console.log('DrawLayer.highlight() called with annotationId:', annotationId);
-    console.log('Stack trace:', new Error().stack);
-    
     // Check if annotation is deleted before creating SVG
     const uiManager = this.#getUIManager();
     if (annotationId && uiManager?.isDeletedAnnotationElement?.(annotationId)) {
-      console.log(`DrawLayer: Not creating highlight SVG for deleted annotation ${annotationId}`);
       return null;
     }
     
@@ -120,7 +120,6 @@ class DrawLayer {
           if (!existingAnnotationId) {
             existingSvg.setAttribute('data-annotation-id', annotationId);
           }
-          console.warn(`Reusing existing highlight SVG for annotation ${annotationId}, existing ID: ${existingId}`);
           return { id: existingId, clipPathId: existingSvg.getAttribute('clip-path') || `url(#clippath_${existingId})` };
         }
       }
@@ -167,7 +166,6 @@ class DrawLayer {
     // Check if annotation is deleted before creating SVG
     const uiManager = this.#getUIManager();
     if (annotationId && uiManager?.isDeletedAnnotationElement?.(annotationId)) {
-      console.log(`DrawLayer: Not creating highlight outline SVG for deleted annotation ${annotationId}`);
       return null;
     }
     

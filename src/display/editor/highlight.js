@@ -481,13 +481,6 @@ class HighlightEditor extends AnnotationEditor {
   remove() {
     const annotationId = this.annotationElementId || this.id;
     
-    console.log('HighlightEditor.remove() called', {
-      annotationId,
-      annotationElementId: this.annotationElementId,
-      id: this.id,
-      deletedBefore: this.deleted
-    });
-    
     // Capture DOM references before any cleanup
     const pageView = this.parent?.pageView;
     const annotationLayer = pageView?.annotationLayer;
@@ -504,7 +497,6 @@ class HighlightEditor extends AnnotationEditor {
 
     // First, remove ALL DOM elements immediately while we have references
     if (annotationId && (annotationLayer || canvasWrapper)) {
-      console.log('Removing DOM elements immediately for', annotationId);
       this.#removeAnnotationElementsWithRefs(annotationId, annotationLayer, canvasWrapper);
     }
     
@@ -513,11 +505,6 @@ class HighlightEditor extends AnnotationEditor {
     
     // Call parent remove (which may set this.deleted = true in detach())
     super.remove();
-    
-    console.log('HighlightEditor.remove() completed', {
-      annotationId,
-      deletedAfter: this.deleted
-    });
   }
 
   /**
@@ -525,10 +512,7 @@ class HighlightEditor extends AnnotationEditor {
    * @private
    */
   #removeAnnotationElements(annotationId) {
-    console.log('#removeAnnotationElements called with', annotationId);
-    
     if (!this.parent || !this.parent.pageView) {
-      console.log('No parent or pageView, returning');
       return;
     }
 
@@ -539,12 +523,7 @@ class HighlightEditor extends AnnotationEditor {
       const annotationElement = annotationLayer.div.querySelector(`[data-annotation-id="${annotationId}"]`);
       if (annotationElement) {
         annotationElement.remove();
-        console.log(`Removed annotation element ${annotationId} from annotation layer`);
-      } else {
-        console.log(`No annotation element found with ID ${annotationId}`);
       }
-    } else {
-      console.log('No annotation layer found');
     }
 
     // Also remove from canvasWrapper if there are any SVG elements
@@ -552,13 +531,9 @@ class HighlightEditor extends AnnotationEditor {
     if (canvasWrapper) {
       // Remove SVG elements with this annotation ID
       const svgElements = canvasWrapper.querySelectorAll(`[data-annotation-id="${annotationId}"]`);
-      console.log(`Found ${svgElements.length} SVG elements to remove`);
       svgElements.forEach(svg => {
         svg.remove();
-        console.log(`Removed SVG element ${annotationId} from canvas wrapper`);
       });
-    } else {
-      console.log('No canvas wrapper found');
     }
   }
 
@@ -567,74 +542,36 @@ class HighlightEditor extends AnnotationEditor {
    * @private
    */
   #removeAnnotationElementsWithRefs(annotationId, annotationLayer, canvasWrapper) {
-    console.log('#removeAnnotationElementsWithRefs called with', {
-      annotationId,
-      hasAnnotationLayer: !!annotationLayer,
-      hasCanvasWrapper: !!canvasWrapper
-    });
-    
     // Remove annotation elements from the annotation layer
     if (annotationLayer && annotationLayer.div) {
       const annotationElement = annotationLayer.div.querySelector(`[data-annotation-id="${annotationId}"]`);
-      console.log('Found annotation element in annotation layer:', !!annotationElement);
       if (annotationElement) {
-        console.log('Removing annotation element from annotation layer:', annotationElement);
         annotationElement.remove();
-        console.log(`Removed annotation element ${annotationId} from annotation layer`);
-        
-        // Verify it's actually removed
-        const stillExists = annotationLayer.div.querySelector(`[data-annotation-id="${annotationId}"]`);
-        console.log('Annotation element still exists after removal:', !!stillExists);
-      } else {
-        console.log(`No annotation element found with ID ${annotationId}`);
       }
-    } else {
-      console.log('No annotation layer available');
     }
 
     // Remove SVG elements from canvasWrapper
     if (canvasWrapper) {
-      console.log('CanvasWrapper HTML before removal:', canvasWrapper.innerHTML);
-      
       const svgElements = canvasWrapper.querySelectorAll(`[data-annotation-id="${annotationId}"]`);
-      console.log(`Found ${svgElements.length} SVG elements to remove in canvasWrapper`);
       
       // Try multiple approaches to remove SVG elements
-      svgElements.forEach((svg, index) => {
-        console.log(`Removing SVG element ${index + 1}:`, svg);
-        console.log('SVG parent:', svg.parentNode);
-        console.log('SVG is connected:', svg.isConnected);
-        
+      svgElements.forEach((svg) => {
         // Try different removal methods
         try {
           svg.remove();
-          console.log(`Called svg.remove() for element ${index + 1}`);
         } catch (e) {
-          console.error('Error calling svg.remove():', e);
-        }
-        
-        // Alternative removal method
-        if (svg.parentNode) {
-          try {
-            svg.parentNode.removeChild(svg);
-            console.log(`Called parentNode.removeChild() for element ${index + 1}`);
-          } catch (e) {
-            console.error('Error calling parentNode.removeChild():', e);
+          // Alternative removal method
+          if (svg.parentNode) {
+            try {
+              svg.parentNode.removeChild(svg);
+            } catch (e2) {
+              // If both methods fail, try hiding the element
+              svg.style.display = 'none';
+              svg.setAttribute('data-deleted', 'true');
+            }
           }
         }
       });
-      
-      // Verify SVG elements are actually removed
-      const stillExistsSvg = canvasWrapper.querySelectorAll(`[data-annotation-id="${annotationId}"]`);
-      console.log(`SVG elements still exist after removal: ${stillExistsSvg.length}`);
-      if (stillExistsSvg.length > 0) {
-        console.log('Remaining SVG elements:', stillExistsSvg);
-        console.log('CanvasWrapper HTML after failed removal:', canvasWrapper.innerHTML);
-      } else {
-        console.log('All SVG elements successfully removed');
-      }
-    } else {
-      console.log('No canvas wrapper available');
     }
   }
 
@@ -751,14 +688,12 @@ class HighlightEditor extends AnnotationEditor {
     // Check if this annotation has been deleted - if so, don't create SVG elements
     if (annotationId && this.parent?.annotationEditorLayer && 
         this.parent.annotationEditorLayer.isDeletedAnnotationElement(annotationId)) {
-      console.log(`#addToDrawLayer: Skipping SVG creation for deleted annotation ${annotationId}`);
       return;
     }
     
     // Additional check: if the UI manager considers this deleted, don't create SVGs
     const uiManager = this._uiManager || this.parent?._uiManager || parent?.annotationEditorUIManager;
     if (uiManager && uiManager.isDeletedAnnotationElement && uiManager.isDeletedAnnotationElement(annotationId)) {
-      console.log(`#addToDrawLayer: UI manager says annotation ${annotationId} is deleted, skipping SVG creation`);
       return;
     }
     
@@ -1030,8 +965,6 @@ class HighlightEditor extends AnnotationEditor {
     // Check if this is a deleted annotation - if so, force hide it
     const uiManager = this._uiManager || this.parent?._uiManager;
     if (annotationId && uiManager && uiManager.isDeletedAnnotationElement && uiManager.isDeletedAnnotationElement(annotationId)) {
-      console.log(`HighlightEditor.show(): Forcing hide for deleted annotation ${annotationId}`);
-      
       // Force hide by setting visible to false
       visible = false;
       
@@ -1332,7 +1265,6 @@ class HighlightEditor extends AnnotationEditor {
     const annotationId = this.annotationElementId;
     if (annotationId && this.parent?.annotationEditorLayer && 
         this.parent.annotationEditorLayer.isDeletedAnnotationElement(annotationId)) {
-      console.log(`initializeFromDeserialization: Skipping SVG creation for deleted annotation ${annotationId}`);
       return;
     }
     

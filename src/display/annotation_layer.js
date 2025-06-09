@@ -2946,13 +2946,10 @@ class HighlightAnnotationElement extends AnnotationElement {
   }
 
   render() {
-    console.log('HighlightAnnotationElement.render() called for annotation', this.data.id);
-    
     // Check if this annotation has been marked as deleted
     // First check UI manager (for current session)
     const uiManager = this.parent._annotationEditorUIManager;
     if (uiManager?.isDeletedAnnotationElement(this.data.id)) {
-      console.log('Annotation', this.data.id, 'is marked as deleted in UI manager - not rendering');
       return null;
     }
     
@@ -2960,7 +2957,6 @@ class HighlightAnnotationElement extends AnnotationElement {
     if (this.annotationStorage) {
       const storedData = this.annotationStorage.getRawValue(this.data.id);
       if (storedData && storedData.deleted) {
-        console.log('Annotation', this.data.id, 'is marked as deleted in storage - not rendering');
         return null;
       }
     }
@@ -2974,15 +2970,12 @@ class HighlightAnnotationElement extends AnnotationElement {
         if (canvasWrapper) {
           const existingSvgs = canvasWrapper.querySelectorAll(`[data-annotation-id="${this.data.id}"]`);
           if (existingSvgs.length > 0 && uiManager.isDeletedAnnotationElement(this.data.id)) {
-            console.log(`Found existing SVGs for deleted annotation ${this.data.id}, removing them`);
             existingSvgs.forEach(svg => svg.remove());
             return null;
           }
         }
       }
     }
-
-    console.log('Annotation', this.data.id, 'is NOT deleted - proceeding with render');
 
     if (!this.data.popupRef && this.hasPopupData) {
       this._createPopup();
@@ -3020,26 +3013,20 @@ class HighlightAnnotationElement extends AnnotationElement {
   }
 
   _createHighlightEditor(pageView = null, uiManager = null) {
-    console.log(`_createHighlightEditor called for annotation ${this.data.id}`);
-    
     // Only create highlight editors if we have a valid uiManager
     // This prevents automatic editor creation during PDF loading
     if (!uiManager) {
-      console.log(`No uiManager provided for ${this.data.id}, skipping`);
       return;
     }
     
     // Check if this annotation has been deleted - if so, don't create editor
     if (uiManager.isDeletedAnnotationElement && uiManager.isDeletedAnnotationElement(this.data.id)) {
-      console.log(`_createHighlightEditor: Skipping deleted annotation ${this.data.id}`);
-      
       // If this is a deleted annotation but we find SVG elements, remove them
       if (pageView) {
         const canvasWrapper = pageView.div?.querySelector('.canvasWrapper');
         if (canvasWrapper) {
           const svgElements = canvasWrapper.querySelectorAll(`[data-annotation-id="${this.data.id}"]`);
           if (svgElements.length > 0) {
-            console.log(`_createHighlightEditor: Removing ${svgElements.length} SVG elements for deleted annotation ${this.data.id}`);
             svgElements.forEach(svg => svg.remove());
           }
         }
@@ -3050,7 +3037,6 @@ class HighlightAnnotationElement extends AnnotationElement {
     
     // Prevent infinite recursion by checking if editor already exists
     if (this._highlightEditor || this._creatingHighlightEditor) {
-      console.log(`Editor already exists or being created for ${this.data.id}, skipping`);
       return;
     }
     
@@ -3171,7 +3157,6 @@ class HighlightAnnotationElement extends AnnotationElement {
       try {
         // Check if this annotation has been deleted before deserializing
         if (uiManager?.isDeletedAnnotationElement?.(this.data.id)) {
-          console.log(`Not deserializing deleted highlight annotation ${this.data.id}`);
           return;
         }
         

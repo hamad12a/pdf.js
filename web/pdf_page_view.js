@@ -858,17 +858,13 @@ class PDFPageView {
   }
 
   #ensureDeferredHighlightSVGs() {
-    console.log('#ensureDeferredHighlightSVGs() called');
     // Process any pending highlight annotations now that draw layer is ready
     if (this.div._pendingHighlights) {
-      console.log(`Found ${this.div._pendingHighlights.size} pending highlights`);
       for (const [id, highlightAnnotation] of this.div._pendingHighlights) {
-        console.log(`Processing pending highlight ${id}`);
         try {
           // Check if this annotation has been deleted
           const { annotationEditorUIManager } = this.#layerProperties;
           if (annotationEditorUIManager && annotationEditorUIManager.isDeletedAnnotationElement(id)) {
-            console.log(`#ensureDeferredHighlightSVGs: Skipping deleted annotation ${id}`);
             continue;
           }
           
@@ -878,7 +874,6 @@ class PDFPageView {
           }
           
           if (this._highlightEditors.has(id)) {
-            console.log(`Editor already exists for ${id}, skipping`);
             continue;
           }
           
@@ -890,12 +885,10 @@ class PDFPageView {
             
             if (existingHighlightId !== null && existingOutlineId !== null) {
               // SVGs already exist, skip this annotation
-              console.log(`SVGs already exist for ${id}, skipping`);
               continue;
             }
           }
           
-          console.log(`Creating highlight editor for ${id}`);
           // Pass the pageView (this) and the UI manager to the annotation element
           highlightAnnotation._createHighlightEditor(this, annotationEditorUIManager);
         } catch (err) {
@@ -904,9 +897,6 @@ class PDFPageView {
       }
       // Clear the pending highlights
       this.div._pendingHighlights.clear();
-      console.log('Cleared pending highlights');
-    } else {
-      console.log('No pending highlights found');
     }
   }
 
@@ -1257,8 +1247,6 @@ class PDFPageView {
     allAnnotatedSvgs.forEach(svg => {
       const annotationId = svg.getAttribute('data-annotation-id');
       if (annotationId && uiManager.isDeletedAnnotationElement(annotationId)) {
-        console.log(`Page ${this.id}: Removing SVG for deleted annotation ${annotationId} during re-render`);
-        
         try {
           if (svg.parentNode) {
             svg.parentNode.removeChild(svg);
@@ -1266,7 +1254,6 @@ class PDFPageView {
             svg.remove();
           }
         } catch (e) {
-          console.warn(`Error removing SVG element for ${annotationId}:`, e);
           // Fallback: hide the element if removal fails
           svg.style.display = 'none';
           svg.style.visibility = 'hidden';
@@ -1331,8 +1318,6 @@ class PDFPageView {
   #checkAndRemoveDeletedSVG(element, uiManager) {
     const annotationId = element.getAttribute?.('data-annotation-id');
     if (annotationId && uiManager.isDeletedAnnotationElement(annotationId)) {
-      console.log(`Page ${this.id}: Intercepted and removing SVG for deleted annotation ${annotationId}`);
-      
       try {
         if (element.parentNode) {
           element.parentNode.removeChild(element);
@@ -1340,7 +1325,6 @@ class PDFPageView {
           element.remove();
         }
       } catch (e) {
-        console.warn(`Error removing intercepted SVG element for ${annotationId}:`, e);
         // Fallback: hide the element if removal fails
         element.style.display = 'none';
         element.style.visibility = 'hidden';

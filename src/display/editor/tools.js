@@ -1119,14 +1119,9 @@ class AnnotationEditorUIManager {
    * @private
    */
   #cleanupDeletedAnnotationSVGs() {
-    console.log('#cleanupDeletedAnnotationSVGs called');
-    
     if (this.#deletedAnnotationsElementIds.size === 0) {
-      console.log('No deleted annotations to clean up');
       return;
     }
-    
-    console.log('Deleted annotation IDs to clean up:', Array.from(this.#deletedAnnotationsElementIds));
     
     // First, hide/remove any existing editors for deleted annotations
     this.#cleanupDeletedEditors();
@@ -1144,8 +1139,6 @@ class AnnotationEditorUIManager {
         continue;
       }
       
-      console.log(`Checking page ${layer.pageIndex} for deleted annotation SVGs`);
-      
       // Remove SVG elements for each deleted annotation
       for (const deletedId of this.#deletedAnnotationsElementIds) {
         // Use a more comprehensive selector to catch all possible SVG elements
@@ -1158,10 +1151,7 @@ class AnnotationEditorUIManager {
         for (const selector of svgSelectors) {
           const svgElements = canvasWrapper.querySelectorAll(selector);
           if (svgElements.length > 0) {
-            console.log(`Found ${svgElements.length} SVG elements to remove for deleted annotation ${deletedId} on page ${layer.pageIndex} (selector: ${selector})`);
-            svgElements.forEach((svg, index) => {
-              console.log(`Removing SVG element ${index + 1} for deleted annotation ${deletedId}:`, svg);
-              
+            svgElements.forEach((svg) => {
               // Use multiple removal strategies to ensure proper cleanup
               try {
                 if (svg.parentNode) {
@@ -1170,7 +1160,6 @@ class AnnotationEditorUIManager {
                   svg.remove();
                 }
               } catch (e) {
-                console.warn(`Error removing SVG element for ${deletedId}:`, e);
                 // Fallback: hide the element if removal fails
                 svg.style.display = 'none';
                 svg.style.visibility = 'hidden';
@@ -1181,11 +1170,9 @@ class AnnotationEditorUIManager {
         
         // Verify removal
         const remainingSvgs = canvasWrapper.querySelectorAll(`[data-annotation-id="${deletedId}"]`);
-        console.log(`SVG elements remaining for ${deletedId} on page ${layer.pageIndex}: ${remainingSvgs.length}`);
         
         // Force hide any remaining elements as a fallback
         if (remainingSvgs.length > 0) {
-          console.warn(`Some SVG elements could not be removed for ${deletedId}, hiding them instead`);
           remainingSvgs.forEach(svg => {
             svg.style.display = 'none';
             svg.style.visibility = 'hidden';
@@ -1205,8 +1192,6 @@ class AnnotationEditorUIManager {
       // Find and remove any existing editors for this deleted annotation
       for (const [editorId, editor] of this.#allEditors) {
         if (editor.annotationElementId === deletedId) {
-          console.log(`Found existing editor ${editorId} for deleted annotation ${deletedId}, hiding it`);
-          
           // Force hide the editor
           if (editor.show) {
             editor.show(false);
@@ -1663,13 +1648,11 @@ class AnnotationEditorUIManager {
       // Also schedule delayed cleanups to handle re-rendering
       // Run cleanup after the current execution stack completes
       setTimeout(() => {
-        console.log('Running delayed cleanup (immediate)');
         this.#cleanupDeletedAnnotationSVGs();
       }, 0);
       
       // Run cleanup after a short delay to catch any async re-rendering
       setTimeout(() => {
-        console.log('Running delayed cleanup (100ms)');
         this.#cleanupDeletedAnnotationSVGs();
       }, 100);
     }
@@ -1954,17 +1937,9 @@ class AnnotationEditorUIManager {
    * @param {AnnotationEditor} editor
    */
   addDeletedAnnotationElement(editor) {
-    console.log('addDeletedAnnotationElement called:', {
-      editorId: editor.id,
-      annotationElementId: editor.annotationElementId
-    });
     this.#deletedAnnotationsElementIds.add(editor.annotationElementId);
     this.addChangedExistingAnnotation(editor);
     editor.deleted = true;
-    console.log('Added to deleted set:', {
-      annotationElementId: editor.annotationElementId,
-      deletedIds: Array.from(this.#deletedAnnotationsElementIds)
-    });
   }
 
   /**
@@ -1974,11 +1949,6 @@ class AnnotationEditorUIManager {
    */
   isDeletedAnnotationElement(annotationElementId) {
     const isDeleted = this.#deletedAnnotationsElementIds.has(annotationElementId);
-    console.log('isDeletedAnnotationElement check:', {
-      annotationElementId,
-      isDeleted,
-      deletedIds: Array.from(this.#deletedAnnotationsElementIds)
-    });
     return isDeleted;
   }
 
