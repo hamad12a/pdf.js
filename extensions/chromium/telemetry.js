@@ -30,7 +30,7 @@ limitations under the License.
   // We want one ping a day, so a minimum delay of 12 hours should be OK.
   var MINIMUM_TIME_BETWEEN_PING = 12 * 36e5;
 
-  if (chrome.extension.inIncognitoContext) {
+  if (chrome.runtime.getContexts && chrome.runtime.getContexts({incognito: true}).length > 0) {
     // The extension uses incognito split mode, so there are two background
     // pages. Only send telemetry when not in incognito mode.
     return;

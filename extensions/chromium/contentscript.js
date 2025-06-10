@@ -16,7 +16,7 @@ limitations under the License.
 
 "use strict";
 
-var VIEWER_URL = chrome.extension.getURL("content/web/viewer.html");
+var VIEWER_URL = chrome.runtime.getURL("content/web/viewer.html");
 
 function getViewerURL(pdf_url) {
   return VIEWER_URL + "?file=" + encodeURIComponent(pdf_url);
@@ -220,4 +220,40 @@ function getEmbeddedViewerURL(path) {
   a.href = path;
   path = a.href;
   return getViewerURL(path) + fragment;
+}
+
+// Listen for messages from background script for PDF redirection
+chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
+  if (message.action === "redirectToPdfViewer" && message.viewerUrl) {
+    // Redirect to PDF viewer
+    window.location.href = message.viewerUrl;
+  }
+});
+
+// Intercept clicks on PDF links to redirect them proactively
+document.addEventListener('click', function(event) {
+  var target = event.target;
+  
+  // Handle direct PDF links
+  if (target.tagName === 'A' && target.href && target.href.match(/\.pdf($|\?)/i)) {
+    event.preventDefault();
+    var viewerUrl = getViewerURL(target.href);
+    window.location.href = viewerUrl;
+    return false;
+  }
+  
+  // Handle links within other elements that might lead to PDFs
+  var link = target.closest('a');
+  if (link && link.href && link.href.match(/\.pdf($|\?)/i)) {
+    event.preventDefault();
+    var viewerUrl = getViewerURL(link.href);
+    window.location.href = viewerUrl;
+    return false;
+  }
+}, true);
+
+// Also check for PDF URLs in the current page on load
+if (window.location.href.match(/\.pdf($|\?)/i)) {
+  var viewerUrl = getViewerURL(window.location.href);
+  window.location.replace(viewerUrl);
 }
